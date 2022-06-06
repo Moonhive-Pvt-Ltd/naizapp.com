@@ -1,0 +1,130 @@
+<?php
+include_once 'connect.php';
+
+if (isset($_POST['action'])) {
+    switch ($_POST['action']) {
+        case 'setWebCookie':
+            setWebCookie($_POST);
+            break;
+        case 'updateUserPassword':
+            updateUserPassword($_POST, $mysqli);
+            break;
+    }
+}
+
+function login($email, $password, $mysqli)
+{
+    // Using prepared statements means that SQL injection is not possible.
+    if ($stmt = $mysqli->prepare("SELECT uid, password, salt
+FROM user
+WHERE status = 'active'
+AND email = ?
+LIMIT 1")) {
+        $stmt->bind_param('s', $email); // Bind "$email" to parameter.
+        $stmt->execute(); // Execute the prepared query.
+        $stmt->store_result();
+
+        // get variables from result.
+        $stmt->bind_result($user_uid, $db_password, $salt);
+        $stmt->fetch();
+
+        if ($stmt->num_rows == 1) {
+            $password = hash('sha512', $password . $salt);
+            // Check if the password in the database matches
+            // the password the user submitted.
+            if ($password == $db_password) {
+                // Password is correct!
+                // Get the user-agent string of the user.
+                $user_browser = $_SERVER['HTTP_USER_AGENT'];
+                // XSS protection as we might print this value
+                $login_string = hash('sha512', $db_password . $user_browser);
+                // Login successful.
+
+                //storing data in cookie since session is not handled properly
+                setcookie("naiz_web_user_uid", $user_uid, time() + 60 * 60 * 24 * 365, "/");
+                setcookie("naiz_web_login_string", $login_string, time() + 60 * 60 * 24 * 365, "/");
+                return true;
+            } else {
+                // Password is not correct
+                return false;
+            }
+        } else {
+            //No user exists
+            return false;
+        }
+    }
+}
+
+function login_check($mysqli)
+{
+    // Check if all cookie variables are set
+    if (isset($_COOKIE['naiz_web_email']) && isset($_COOKIE['naiz_web_password'])) {
+        if (login($_COOKIE['naiz_web_email'], $_COOKIE['naiz_web_password'], $mysqli) == true) {
+            // Login success using cookie data
+            return true;
+        } else {
+            // Login failed
+            header('location: logout');
+        }
+    } else {
+        // Not logged in
+        return false;
+    }
+}
+
+function setWebCookie($post)
+{
+    setcookie($post['cookie'], $post['value'], time() + 60 * 60 * 24 * 365, "/");
+}
+
+function getApiData($url, $post)
+{
+    $curl = curl_init($url); //initialising our url
+    curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($curl, CURLOPT_POST, true);
+    curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($curl, CURLOPT_POSTFIELDS, $post);
+    $curl_response = curl_exec($curl);
+    curl_close($curl);
+    return json_decode($curl_response, true);
+}
+
+function getUserData($mysqli, $user_uid)
+{
+    $result = mysqli_query($mysqli, "SELECT * FROM `user` WHERE uid = '$user_uid' AND status = 'active'");
+    $num = mysqli_num_rows($result);
+    if ($num > 0) {
+        $row = $result->fetch_assoc();
+        $user_id = $row;
+        return $user_id;
+    }
+}
+
+function getVendorData($mysqli, $vendor_uid)
+{
+    $result = mysqli_query($mysqli, "SELECT id FROM vendor WHERE uid = '$vendor_uid' AND status = 'active'");
+    $num = mysqli_num_rows($result);
+    if ($num > 0) {
+        $row = $result->fetch_assoc();
+        $vendor_id = $row;
+        return $vendor_id;
+    }
+}
+
+
+function updateUserPassword($post, $mysqli)
+{
+    $user_id = $post['user_id'];
+    $pswd = mysqli_real_escape_string($mysqli, $post['password']);
+    $confirm_pswd = mysqli_real_escape_string($mysqli, $post['confirm_pswd']);
+    if ($pswd === $confirm_pswd) {
+        $ps = hash('sha512', $confirm_pswd);
+        $salt = hash('sha512', $ps);
+        $password = hash('sha512', $ps . $salt);
+        $rlt = mysqli_query($mysqli, "UPDATE `user` SET password = '$password', salt = '$salt', token = null WHERE id = '$user_id'");
+        echo $rlt ? $rlt : $mysqli->error;
+    } else {
+        echo "Password not match";
+        return;
+    }
+}
