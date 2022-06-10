@@ -19,11 +19,9 @@
                             <h3 class="footer-title">Information</h3>
                             <ul>
                                 <li><a href="about_us">About Us</a></li>
-                                <li><a>Delivery Information</a></li>
                                 <li><a href="privacy_policy">Privacy Policy</a></li>
                                 <li><a href="refund_policy">Refund Policy</a></li>
                                 <li><a href="terms_and_condition">Terms & Conditions</a></li>
-                                <li><a>Customer Service</a></li>
                             </ul>
                         </div>
                     </div>
