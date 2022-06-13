@@ -21,6 +21,7 @@
                                 <li><a href="about_us">About Us</a></li>
                                 <li><a href="privacy_policy">Privacy Policy</a></li>
                                 <li><a href="refund_policy">Refund Policy</a></li>
+                                <li><a href="shipping_policy">Shipping Policy</a></li>
                                 <li><a href="terms_and_condition">Terms & Conditions</a></li>
                             </ul>
                         </div>
