@@ -139,13 +139,13 @@ if ($prdt_detail != null) {
                             </tr>
                             <?php if ($prdt_detail['code']) { ?>
                                 <tr>
-                                    <td class="width1">Code</td>
+                                    <td class="width1">Hsn Code</td>
                                     <td><?php echo $prdt_detail['code']; ?></td>
                                 </tr>
                             <?php }
                             if ($prdt_detail['batch_no']) { ?>
                                 <tr>
-                                    <td class="width1">Batch Number</td>
+                                    <td class="width1">Item No</td>
                                     <td><?php echo $prdt_detail['batch_no']; ?></td>
                                 </tr>
                             <?php } ?>
