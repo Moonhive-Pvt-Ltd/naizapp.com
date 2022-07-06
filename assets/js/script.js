@@ -895,6 +895,7 @@ $(document).ready(function () {
                                 form_data1.append("payment_id", transaction.razorpay_payment_id);
                                 form_data1.append("payment_order_id", transaction.razorpay_order_id);
                                 form_data1.append("signature", transaction.razorpay_signature);
+                                form_data1.append("total_amt", amount);
 
                                 $.ajax({
                                     url: url1,
