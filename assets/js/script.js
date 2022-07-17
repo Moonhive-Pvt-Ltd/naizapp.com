@@ -200,6 +200,7 @@ $(document).ready(function () {
         let vendor_uid = $(this).attr('vendor-uid');
         let product_size_id = $(this).attr('product-size-id');
         let color_id = $(this).attr('color-id');
+        let warranty_id = $(this).attr('warranty-id');
         let stock = $(this).attr('stock');
         let current_val = $(this).attr('current-val');
 
@@ -208,6 +209,47 @@ $(document).ready(function () {
         $(this).attr('btn-sign', '');
 
         if (stock != 'unlimited') {
+            if (val != '') {
+                if (warranty_id != '') {
+                    let tr_html = $('.cart-tr-' + product_size_id + '-' + color_id);
+                    let total_value = 0;
+                    if (tr_html.length > 0) {
+                        for (var i = 0; i < tr_html.length; i++) {
+                            if ($(tr_html[i]).attr('warranty-id') == warranty_id) {
+                                total_value = total_value + parseInt(val);
+                            } else {
+                                total_value = total_value + parseInt($(tr_html[i]).find('.stock-count').val());
+                            }
+                        }
+
+                        if (total_value <= parseInt(stock)) {
+                            $('.no-stock-available-td-' + product_size_id + '-' + color_id).remove();
+                        }
+
+                        if (total_value > parseInt(stock)) {
+                            if (btn_sign == '+' || btn_sign == '') {
+                                if (stock == 0) {
+                                    Swal.fire({text: 'No stock is available', confirmButtonColor: "#e97730"});
+                                } else {
+                                    Swal.fire({
+                                        text: 'Total ' + stock + ' is available',
+                                        confirmButtonColor: "#e97730"
+                                    });
+                                }
+
+                                if (btn_sign == '+') {
+                                    $(this).val(parseInt(val) - 1);
+                                    $(this).attr('current-val', parseInt(val) - 1);
+                                } else {
+                                    $(this).val(current_val);
+                                }
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+
             if (parseInt(val) > parseInt(stock)) {
                 if (btn_sign == '+' || btn_sign == '') {
                     if (stock == 0) {
@@ -251,6 +293,7 @@ $(document).ready(function () {
         form_data.append('vendor_uid', vendor_uid);
         form_data.append('product_size_id', product_size_id);
         form_data.append('color_id', color_id);
+        form_data.append('warranty_id', warranty_id);
         let url = BASE_URL + "add_to_cart";
         $.ajax({
             url: url,
@@ -304,24 +347,56 @@ $(document).ready(function () {
                 total_stock_count = $('.prdt-color-select.active').attr('color-stock');
             }
 
-            if (parseInt(val) > parseInt(total_stock_count)) {
-                if (total_stock_count == 0) {
-                    Swal.fire({text: 'No stock is available', confirmButtonColor: "#e97730"});
-                } else {
-                    Swal.fire({
-                        text: 'Only ' + total_stock_count + ' is available',
-                        confirmButtonColor: "#e97730"
-                    });
-                }
-                return;
-            }
-
             let product_uid = $('#productUid').val();
             let vendor_uid = $('#vendorUId').val();
             let product_size_id = $('#prdtSizeId').val();
             let color_id = '';
+            let warranty_id = '';
+            let warranty_check = 0;
             if (color_check > 0) {
                 color_id = $('.prdt-color-select.active').attr('color-id');
+                warranty_check = $('.prdt-color-select.active').attr('warranty-check');
+                if (warranty_check) {
+                    warranty_id = $('.prdt-detail-color-warranty-select').find(':selected').attr('warranty-id');
+                }
+            }
+
+            let remaining_warranty_count = 0;
+            if (warranty_check) {
+                let w_html = $('.prdt-detail-color-warranty-select option');
+
+                for (let i = 0; i < w_html.length; i++) {
+                    if (warranty_id == $(w_html[i]).attr('warranty-id')) {
+                    } else {
+                        remaining_warranty_count = parseInt(remaining_warranty_count) + parseInt($(w_html[i]).attr('count-id'));
+                    }
+                }
+            }
+
+            if ((parseInt(val) + parseInt(remaining_warranty_count)) > parseInt(total_stock_count)) {
+                if (total_stock_count == 0) {
+                    Swal.fire({text: 'No stock is available', confirmButtonColor: "#e97730"});
+                    return;
+                } else {
+                    if (warranty_check) {
+                        let current_value = $('.prdt-detail-color-warranty-select').find(':selected').attr('count-id');
+                        if (val > 1 && val < current_value) {
+
+                        } else {
+                            Swal.fire({
+                                text: 'Total ' + total_stock_count + ' is available',
+                                confirmButtonColor: "#e97730"
+                            });
+                            return;
+                        }
+                    } else {
+                        Swal.fire({
+                            text: 'Only ' + total_stock_count + ' is available',
+                            confirmButtonColor: "#e97730"
+                        });
+                        return;
+                    }
+                }
             }
 
             let form_data = new FormData();
@@ -332,6 +407,7 @@ $(document).ready(function () {
             form_data.append('vendor_uid', vendor_uid);
             form_data.append('product_size_id', product_size_id);
             form_data.append('color_id', color_id);
+            form_data.append('warranty_id', warranty_id);
             let url = BASE_URL + "add_to_cart";
             $.ajax({
                 url: url,
@@ -348,6 +424,9 @@ $(document).ready(function () {
                             $('#currentCount').val(val);
                         } else {
                             $('.prdt-color-select.active').attr('color-count', val);
+                            if (warranty_check) {
+                                $('.prdt-detail-color-warranty-select').find(':selected').attr('count-id', val);
+                            }
                         }
                         getCartCountContent();
                     } else {
@@ -375,28 +454,52 @@ $(document).ready(function () {
         if (typeof btn_sign == 'undefined') {
             btn_sign = '';
         }
+
+        let remaining_warranty_count = 0;
         let current_count = 0;
         let total_stock_count = 0;
+        let warranty_check = 0;
         if (color_check == 0) {
             current_count = $('#currentCount').val();
             total_stock_count = $('#totalStockCount').val();
         } else {
-            current_count = $('.prdt-color-select.active').attr('color-count');
+            warranty_check = $('.prdt-color-select.active').attr('warranty-check');
             total_stock_count = $('.prdt-color-select.active').attr('color-stock');
+            if (warranty_check) {
+                let warranty_id = $('.prdt-detail-color-warranty-select').find(':selected').attr('warranty-id');
+                current_count = $('.prdt-detail-color-warranty-select').find(':selected').attr('count-id');
+                let html = $('.prdt-detail-color-warranty-select option');
+
+                for (let i = 0; i < html.length; i++) {
+                    if (warranty_id == $(html[i]).attr('warranty-id')) {
+                    } else {
+                        remaining_warranty_count = parseInt(remaining_warranty_count) + parseInt($(html[i]).attr('count-id'));
+                    }
+                }
+            } else {
+                current_count = $('.prdt-color-select.active').attr('color-count');
+            }
         }
 
         if (btn_type == 'out_of_stock') {
+            let input_val = 0;
             if (btn_sign == '+') {
                 Swal.fire({text: 'No stock is available', confirmButtonColor: "#e97730"});
-                $('.cart-plus-minus-box-prdt-detail').val(parseInt(count) - 1);
+                input_val = parseInt(count) - 1;
             } else if (btn_sign == '-') {
-                $('.cart-plus-minus-box-prdt-detail').val(0);
+                input_val = 0;
             } else if (btn_sign == '') {
                 Swal.fire({text: 'No stock is available', confirmButtonColor: "#e97730"});
-                $('.cart-plus-minus-box-prdt-detail').val(current_count);
+                input_val = current_count;
             }
+
+            $('.cart-plus-minus-box-prdt-detail').val(input_val);
+            if (warranty_check) {
+                $('.prdt-detail-color-warranty-select').find(':selected').attr('count-id', input_val)
+            }
+
         } else {
-            if ((parseInt(count) <= parseInt(total_stock_count)) || (total_stock_count == 'unlimited')) {
+            if (((parseInt(count) + parseInt(remaining_warranty_count)) <= parseInt(total_stock_count)) || (total_stock_count == 'unlimited')) {
                 if (count == current_count && (count != 0 && current_count != 0)) {
                     $(this).closest('.product-details-action-wrap').find('.cart-btn').html('Go to Cart');
                     $(this).closest('.product-details-action-wrap').find('.cart-btn').attr("type", "go_to_cart");
@@ -404,19 +507,43 @@ $(document).ready(function () {
                     $(this).closest('.product-details-action-wrap').find('.cart-btn').html('Add to Cart');
                     $(this).closest('.product-details-action-wrap').find('.cart-btn').attr("type", "add_to_cart");
                 }
+
+                if (warranty_check) {
+                    $('.prdt-detail-color-warranty-select').find(':selected').attr('count-id', count)
+                }
             } else {
-                if (parseInt(count) > parseInt(total_stock_count)) {
+                if ((parseInt(count) + parseInt(remaining_warranty_count)) > parseInt(total_stock_count)) {
                     if (btn_sign == '+' || btn_sign == '') {
                         if (total_stock_count == 0) {
                             Swal.fire({text: 'No stock is available', confirmButtonColor: "#e97730"});
                         } else {
-                            Swal.fire({
-                                text: 'Only ' + total_stock_count + ' is available',
-                                confirmButtonColor: "#e97730"
-                            });
+                            if (warranty_check && btn_sign == '') {
+                                if (count < current_count && count < 1) {
+                                    $(this).closest('.product-details-action-wrap').find('.cart-btn').html('Add to Cart');
+                                    $(this).closest('.product-details-action-wrap').find('.cart-btn').attr("type", "add_to_cart");
+                                } else {
+                                    Swal.fire({
+                                        text: 'Total ' + total_stock_count + ' is available',
+                                        confirmButtonColor: "#e97730"
+                                    });
+                                }
+                            } else {
+                                Swal.fire({
+                                    text: 'Only ' + total_stock_count + ' is available',
+                                    confirmButtonColor: "#e97730"
+                                });
+                            }
                         }
                         if (btn_sign == '+') {
                             $('.cart-plus-minus-box-prdt-detail').val(parseInt(count) - 1);
+                            if (warranty_check) {
+                                $('.prdt-detail-color-warranty-select').find(':selected').attr('count-id', (parseInt(count) - 1))
+                            }
+                        }
+                    } else if (btn_sign == '-') {
+                        if (warranty_check && count >= 1) {
+                            $(this).closest('.product-details-action-wrap').find('.cart-btn').html('Add to Cart');
+                            $(this).closest('.product-details-action-wrap').find('.cart-btn').attr("type", "add_to_cart");
                         }
                     }
                 }
@@ -426,27 +553,15 @@ $(document).ready(function () {
     });
 
     $(document).on('click', '.prdt-color-select', function () {
+        let color_id = $(this).attr("color-id");
         let count = $(this).attr("color-count");
         let stock = $(this).attr("color-stock");
-
-        $('.cart-plus-minus-box-prdt-detail').val(count);
-
-        if ((stock > 0) || (stock == 'unlimited')) {
-            if (count > 0) {
-                $('.cart-btn').html('Go to Cart');
-                $('.cart-btn').attr("type", "go_to_cart");
-            } else {
-                $('.cart-btn').html('Add to Cart');
-                $('.cart-btn').attr("type", "add_to_cart");
-                $('.cart-plus-minus-box-prdt-detail').val(1);
-            }
-            $('.product-detail-cart').removeClass('product-detail-cart-out-of-stock-btn');
-            $('.product-detail-cart').addClass('product-detail-cart-btn-color btn-hover');
+        let warranty_check = $(this).attr("warranty-check");
+        let prdt_size_color_id = $(this).attr("prdt-size-color-id");
+        if (warranty_check) {
+            getColorWarrantList(color_id, prdt_size_color_id, stock);
         } else {
-            $('.cart-btn').html('Out of Stock');
-            $('.cart-btn').attr("type", "out_of_stock");
-            $('.product-detail-cart').removeClass('product-detail-cart-btn-color btn-hover');
-            $('.product-detail-cart').addClass('product-detail-cart-out-of-stock-btn');
+            prdtDetailAddToCartCountBtn(stock, count);
         }
     });
 
@@ -518,6 +633,8 @@ $(document).ready(function () {
         let vendor_uid = $(this).closest('tr').attr('vendor-uid');
         let product_size_id = $(this).closest('tr').attr('product-size-id');
         let color_id = $(this).closest('tr').attr('color-id');
+        let warranty_id = $(this).closest('tr').attr('warranty-id');
+        let is_warranty = $(this).closest('tr').attr('is-warranty');
 
         let count = $(this).closest('tr').attr('count');
         let display_price = $(this).closest('tr').attr('display-price');
@@ -542,6 +659,7 @@ $(document).ready(function () {
                 form_data.append('vendor_uid', vendor_uid);
                 form_data.append('product_size_id', product_size_id);
                 form_data.append('color_id', color_id);
+                form_data.append('warranty_id', warranty_id);
                 let url = BASE_URL + "add_to_cart";
                 $.ajax({
                     url: url,
@@ -553,10 +671,21 @@ $(document).ready(function () {
                     success: function (data) {
                         if (data.status == 'Success') {
                             getCartCountContent();
-                            $(btn).closest('tr').next('tr').find('.no-stock-available-td').remove();
-                            $(btn).closest('tr').remove();
+                            if (is_warranty == 1) {
+                                let rowspan = $('.cart-top-tr-' + product_size_id + '-' + color_id).find('.rowspan-count').attr('rowspan');
+                                if (rowspan == 3) {
+                                    $('.cart-top-tr-' + product_size_id + '-' + color_id).remove();
+                                    $('.no-stock-available-td-' + product_size_id + '-' + color_id).remove();
+                                } else {
+                                    $('.cart-top-tr-' + product_size_id + '-' + color_id).find('.cart-prdt-size-rowspan').attr('rowspan', (parseInt(rowspan) - 2));
+                                }
+                                $('.cart-err-tr-' + product_size_id + '-' + color_id + '-' + warranty_id).remove();
+                            } else {
+                                $('.no-stock-available-td-' + product_size_id + '-' + color_id).remove();
+                            }
+                            $('.cart-tr-' + product_size_id + '-' + color_id + '-' + warranty_id).remove();
+
                             $('.total-price-cost').html(cost);
-                            btn.closest('tr').find('.total-display-price-amount').html(0);
                             Toast.fire({
                                 type: 'success',
                                 title: 'Removed Successfully'
@@ -1067,6 +1196,16 @@ $(document).ready(function () {
         });
     });
 
+
+    $(document).on('change', '.prdt-detail-color-warranty-select', function () {
+        let stock = $('.prdt-color-select.active').attr('color-stock');
+        let count = $(this).find(':selected').attr('count-id');
+        let price = $(this).find(':selected').attr('price-id');
+        let offer_price = $(this).find(':selected').attr('offer-price-id');
+        prdtDetailPriceOfferPrice(price, offer_price);
+        prdtDetailAddToCartCountBtn(stock, count);
+    });
+
 });
 
 function setCookie(cookie, value) {
@@ -1303,4 +1442,54 @@ function getVendorListContent(page) {
             $('#vendorListId').html(html)
         }
     })
+}
+
+function getColorWarrantList(color_id, prdt_size_color_id, stock) {
+    let product_size_id = $('#prdtSizeId').val();
+    var ajaxUrl = 'includes/templates/prdt_detail_color_warranty_select.php',
+        data = {
+            color_id: color_id,
+            product_size_id: product_size_id,
+            prdt_size_color_id: prdt_size_color_id,
+            vendor_id: $('#vendorId').val(),
+        };
+    $.post(ajaxUrl, data, function (html) {
+        $('.color-warranty-select-div').html(html);
+        $('.prdt-detail-color-warranty-select').select2();
+        let count = $('.color-warranty-select-div .prdt-detail-color-warranty-select').find(':selected').attr('count-id');
+        $('.prdt-color-select.active').attr('color-count', count);
+        let price = $('.color-warranty-select-div .prdt-detail-color-warranty-select').find(':selected').attr('price-id');
+        let offer_price = $('.color-warranty-select-div .prdt-detail-color-warranty-select').find(':selected').attr('offer-price-id');
+        prdtDetailPriceOfferPrice(price, offer_price);
+        prdtDetailAddToCartCountBtn(stock, count);
+    })
+}
+
+function prdtDetailAddToCartCountBtn(stock, count) {
+    $('.cart-plus-minus-box-prdt-detail').val(count);
+    if ((stock > 0) || (stock == 'unlimited')) {
+        if (count > 0) {
+            $('.cart-btn').html('Go to Cart');
+            $('.cart-btn').attr("type", "go_to_cart");
+        } else {
+            $('.cart-btn').html('Add to Cart');
+            $('.cart-btn').attr("type", "add_to_cart");
+            $('.cart-plus-minus-box-prdt-detail').val(1);
+        }
+        $('.product-detail-cart').removeClass('product-detail-cart-out-of-stock-btn');
+        $('.product-detail-cart').addClass('product-detail-cart-btn-color btn-hover');
+    } else {
+        $('.cart-btn').html('Out of Stock');
+        $('.cart-btn').attr("type", "out_of_stock");
+        $('.product-detail-cart').removeClass('product-detail-cart-btn-color btn-hover');
+        $('.product-detail-cart').addClass('product-detail-cart-out-of-stock-btn');
+    }
+}
+
+function prdtDetailPriceOfferPrice(price, offer_price) {
+    if (offer_price > 0) {
+        $('.product-details-price').html('<span class="old-price">₹' + price + '</span><span class="new-price">₹' + offer_price + '</span>')
+    } else {
+        $('.product-details-price').html('<span class="new-price">₹' + price + '</span>')
+    }
 }

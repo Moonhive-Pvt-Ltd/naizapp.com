@@ -3,8 +3,8 @@ $user_uid = isset($_COOKIE['naiz_web_user_uid']) ? $_COOKIE['naiz_web_user_uid']
 $vendor_uid = isset($_COOKIE['naiz_web_vendor_uid']) ? $_COOKIE['naiz_web_vendor_uid'] : '';
 
 $post = [
-    'uid' => $user_uid,
-    'vendor_uid' => $vendor_uid,
+  'uid' => $user_uid,
+  'vendor_uid' => $vendor_uid,
 ];
 $url = BASE_URL . "get_cart_list";
 $result = getApiData($url, $post);
@@ -22,6 +22,7 @@ if ($result['status'] == 'Success') {
                                     <tr>
                                         <th class="width-thumbnail"></th>
                                         <th class="width-name">Product</th>
+                                        <th></th>
                                         <th class="width-price"> Price</th>
                                         <th class="width-quantity">Quantity</th>
                                         <th class="width-subtotal">Subtotal</th>
@@ -31,64 +32,29 @@ if ($result['status'] == 'Success') {
                                     <tbody class="cart-table-body-div">
                                     <?php
                                     if (count($result['cart_detail']['cart']) > 0) {
-                                        foreach ($result['cart_detail']['cart'] as $row) { ?>
-                                            <tr class="cart-tr" style="position: relative"
-                                                product-uid="<?php echo $row['product_uid']; ?>"
-                                                vendor-uid="<?php echo $vendor_uid; ?>"
-                                                product-size-id="<?php echo $row['product_size_id']; ?>"
-                                                color-id="<?php echo $row['color_id']; ?>"
-                                                count="<?php echo $row['count']; ?>"
-                                                display-price="<?php echo $row['display_price']; ?>">
-                                                <input type="hidden" value="<?php echo $row['count']; ?>"
-                                                       class="stock-count">
-                                                <input type="hidden" value="<?php echo $row['display_price']; ?>"
-                                                       class="stock-price">
-                                                <td class="product-thumbnail">
-                                                    <a href="#">
-                                                        <img src="<?php echo $row['image']; ?>" alt=""/>
-                                                    </a>
-                                                </td>
-                                                <td class="product-name">
-                                                    <h6>
-                                                        <a href="#">
-                                                            <?php echo $row['name']; ?>
-                                                        </a>
-                                                        <div class="d-flex align-items-center">
-                                                            <span class="cart-size-span"><?php echo $row['size']; ?></span>
-                                                            <?php if ($row['color_code']) { ?>
-                                                                <div class="cart-color-div"
-                                                                     style="background-color: <?php echo $row['color_code']; ?>"></div>
-                                                            <?php } ?>
-                                                        </div>
-                                                    </h6>
-                                                </td>
-                                                <td class="product-cart-price"><span
-                                                            class="amount">₹<?php echo $row['display_price']; ?></span>
-                                                </td>
-                                                <td class="cart-quality">
-                                                    <div class="product-quality">
-                                                        <input class="cart-plus-minus-box input-text qty text"
-                                                               name="qtybutton"
-                                                               product-uid="<?php echo $row['product_uid']; ?>"
-                                                               vendor-uid="<?php echo $vendor_uid; ?>"
-                                                               product-size-id="<?php echo $row['product_size_id']; ?>"
-                                                               color-id="<?php echo $row['color_id']; ?>"
-                                                               stock="<?php echo $row['stock']; ?>"
-                                                               current-val="<?php echo $row['count']; ?>"
-                                                               value="<?php echo $row['count']; ?>">
-                                                    </div>
-                                                </td>
-                                                <td class="product-total">
-                                                    ₹<span
-                                                            class="total-display-price-amount"><?php echo $row['total_display_price']; ?></span>
-                                                </td>
-                                                <td class="product-remove">
-                                                    <i class="ti-trash delete-cart-item cursor-pointer"></i>
-                                                </td>
-                                            </tr>
-                                            <?php if ($row['error']) { ?>
+                                        foreach ($result['cart_detail']['cart'] as $row) {
+                                            $i = 0;
+                                            if (count($row['warranty']) > 0) {
+                                                foreach ($row['warranty'] as $wrnty) {
+                                                    $row['cart_id'] = $wrnty['cart_id'];
+                                                    $row['count'] = $wrnty['count'];
+                                                    $row['price'] = $wrnty['price'];
+                                                    $row['offer_price'] = $wrnty['offer_price'];
+                                                    $row['display_price'] = $wrnty['display_price'];
+                                                    $row['total_display_price'] = $wrnty['total_display_price'];
+                                                    $row['warranty_id'] = $wrnty['warranty_id'];
+
+                                                    include 'cart_table_tr.php';
+                                                    $i++;
+                                                }
+                                            } else {
+                                                include 'cart_table_tr.php';
+                                            }
+                                            if ($row['error']) { ?>
                                                 <tr>
-                                                    <td colspan="6" class="no-stock-available-tr no-stock-available-td">
+                                                    <td colspan="7"
+                                                        class="no-stock-available-tr no-stock-available-td
+                                                        no-stock-available-td-<?php echo $row['product_size_id']; ?>-<?php echo $row['color_id']; ?>">
                                                         <h6 class="d-flex flex-row align-items-center color-red">
                                                             <?php if ($row['color_code']) { ?>
                                                                 <div class="cart-color-div margin-right-7px"
@@ -102,7 +68,7 @@ if ($result['status'] == 'Success') {
                                         }
                                     } else { ?>
                                         <tr>
-                                            <td colspan="6">
+                                            <td colspan="7">
                                                 <h4 class="text-center">Cart Empty</h4>
                                             </td>
                                         </tr>

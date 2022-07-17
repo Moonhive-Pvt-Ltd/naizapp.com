@@ -256,7 +256,7 @@
 }
 
 .padding-0px {
-    padding: 0px!important;
+    padding: 0px !important;
 }
 
 .color-red {
@@ -265,6 +265,11 @@
 
 .price-slider-amount .filter-btn.active {
     color: #ed3503 !important;
+}
+
+.cart-top-tr td {
+    height: 0 !important;
+    padding: 0 8px !important;
 }
 
 @media only screen and (max-width: 767px) {
