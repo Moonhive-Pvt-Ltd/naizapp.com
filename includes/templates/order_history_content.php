@@ -27,6 +27,7 @@ if ($result['status'] == 'Success') { ?>
                 <th>Size</th>
                 <th>Count</th>
                 <th>Color</th>
+                <th>Warranty</th>
                 <th>Price</th>
                 <th>Status</th>
                 <th>Date</th>
@@ -45,6 +46,13 @@ if ($result['status'] == 'Success') { ?>
                             <div class="color-code-div"
                                  style="background-color: <?php echo $row['color_code']; ?>"></div>
                         <?php } else { ?>
+                            <?php echo '-';
+                        } ?>
+                    </td>
+                    <td>
+                        <?php if (isset($row['warranty']) && $row['warranty'] != '') {
+                            echo $row['warranty'];
+                        } else { ?>
                             <?php echo '-';
                         } ?>
                     </td>
