@@ -3,8 +3,8 @@ $user_uid = isset($_COOKIE['naiz_web_user_uid']) ? $_COOKIE['naiz_web_user_uid']
 $vendor_uid = isset($_COOKIE['naiz_web_vendor_uid']) ? $_COOKIE['naiz_web_vendor_uid'] : '';
 
 $post = [
-  'uid' => $user_uid,
-  'vendor_uid' => $vendor_uid,
+    'uid' => $user_uid,
+    'vendor_uid' => $vendor_uid,
 ];
 $url = BASE_URL . "get_vendor_pincode";
 $result = getApiData($url, $post);
@@ -86,7 +86,7 @@ if ($user_uid) {
                                     <div class="col-lg-12">
                                         <div class="billing-info mb-20">
                                             <label>City <abbr class="required"
-                                                                         title="required">*</abbr></label>
+                                                              title="required">*</abbr></label>
                                             <input type="text" name="city_district" required>
                                         </div>
                                     </div>
@@ -136,19 +136,45 @@ if ($user_uid) {
                                 </div>
                                 <div class="your-order-middle">
                                     <ul>
-                                        <?php foreach ($result1['cart_detail']['cart'] as $row1) { ?>
-                                            <li>
-                                                <?php echo $row1['name']; ?>
-                                                <span><?php echo '₹' . ($row1['display_price'] * $row1['count']); ?> </span>
+                                        <?php
+                                        $length = count($result1['cart_detail']['cart']);
+                                        $j=0;
+                                        foreach ($result1['cart_detail']['cart'] as $row1) {
+                                            $j++; ?>
+                                            <li class="<?php if($length !== $j) { echo 'checkout-order-list';}?>">
+                                                <?php echo $row1['name'];
+                                                if ($row1['is_warranty'] == 0) { ?>
+                                                    <span><?php echo '₹' . ($row1['display_price'] * $row1['count']); ?> </span>
+                                                <?php } ?>
                                                 <br/>
-                                                <div class="d-flex flex-row align-items-center">
+                                                <?php if ($row1['is_warranty'] == 1) { ?>
+                                                    <div>
+                                                        <div class="d-flex flex-row align-items-center">
                                                     <span class="color-code-div"
                                                           style="background-color: <?php echo $row1['color_code']; ?>"></span>
-                                                    <span class="margin-left-7px font-size-13px"><?php echo $row1['size'] . ' (' . $row1['count'] . ')'; ?></span>
-                                                </div>
+                                                            <span class="margin-left-7px font-size-13px"><?php echo $row1['size']; ?></span>
+                                                        </div>
+                                                        <br/>
+                                                        <?php foreach ($row1['warranty'] AS $warranty) { ?>
+                                                            <div class="d-flex flex-row justify-content-between">
+                                                                <span class="margin-left-7px font-size-13px"><?php echo $warranty['warranty'] . ' (' . $warranty['count'] . ')'; ?></span>
+                                                                <span><?php echo '₹' . ($warranty['display_price'] * $warranty['count']); ?> </span>
+                                                            </div>
+                                                        <?php } ?>
+                                                        <br/>
+                                                    </div>
+                                                <?php } else { ?>
+                                                    <div class="d-flex flex-row align-items-center">
+                                                    <span class="color-code-div"
+                                                          style="background-color: <?php echo $row1['color_code']; ?>"></span>
+                                                        <span class="margin-left-7px font-size-13px"><?php echo $row1['size'] . ' (' . $row1['count'] . ')'; ?></span>
+                                                    </div>
+                                                    <br/>
+                                                <?php } ?>
                                             </li>
                                         <?php } ?>
                                     </ul>
+
                                 </div>
                                 <div class="your-order-info order-subtotal">
                                     <ul>
