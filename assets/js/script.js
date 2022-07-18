@@ -356,13 +356,13 @@ $(document).ready(function () {
             if (color_check > 0) {
                 color_id = $('.prdt-color-select.active').attr('color-id');
                 warranty_check = $('.prdt-color-select.active').attr('warranty-check');
-                if (warranty_check) {
+                if (warranty_check == 1) {
                     warranty_id = $('.prdt-detail-color-warranty-select').find(':selected').attr('warranty-id');
                 }
             }
 
             let remaining_warranty_count = 0;
-            if (warranty_check) {
+            if (warranty_check == 1) {
                 let w_html = $('.prdt-detail-color-warranty-select option');
 
                 for (let i = 0; i < w_html.length; i++) {
@@ -378,9 +378,10 @@ $(document).ready(function () {
                     Swal.fire({text: 'No stock is available', confirmButtonColor: "#e97730"});
                     return;
                 } else {
-                    if (warranty_check) {
+                    if (warranty_check == 1) {
                         let current_value = $('.prdt-detail-color-warranty-select').find(':selected').attr('count-id');
-                        if (val > 1 && val < current_value) {
+                        if (val >= 1 && val < current_value) {
+                        // if (val > 1 && val < current_value) {
 
                         } else {
                             Swal.fire({
@@ -424,7 +425,7 @@ $(document).ready(function () {
                             $('#currentCount').val(val);
                         } else {
                             $('.prdt-color-select.active').attr('color-count', val);
-                            if (warranty_check) {
+                            if (warranty_check == 1) {
                                 $('.prdt-detail-color-warranty-select').find(':selected').attr('count-id', val);
                             }
                         }
@@ -465,11 +466,10 @@ $(document).ready(function () {
         } else {
             warranty_check = $('.prdt-color-select.active').attr('warranty-check');
             total_stock_count = $('.prdt-color-select.active').attr('color-stock');
-            if (warranty_check) {
+            if (warranty_check == 1) {
                 let warranty_id = $('.prdt-detail-color-warranty-select').find(':selected').attr('warranty-id');
                 current_count = $('.prdt-detail-color-warranty-select').find(':selected').attr('count-id');
                 let html = $('.prdt-detail-color-warranty-select option');
-
                 for (let i = 0; i < html.length; i++) {
                     if (warranty_id == $(html[i]).attr('warranty-id')) {
                     } else {
@@ -494,10 +494,6 @@ $(document).ready(function () {
             }
 
             $('.cart-plus-minus-box-prdt-detail').val(input_val);
-            if (warranty_check) {
-                $('.prdt-detail-color-warranty-select').find(':selected').attr('count-id', input_val)
-            }
-
         } else {
             if (((parseInt(count) + parseInt(remaining_warranty_count)) <= parseInt(total_stock_count)) || (total_stock_count == 'unlimited')) {
                 if (count == current_count && (count != 0 && current_count != 0)) {
@@ -507,18 +503,15 @@ $(document).ready(function () {
                     $(this).closest('.product-details-action-wrap').find('.cart-btn').html('Add to Cart');
                     $(this).closest('.product-details-action-wrap').find('.cart-btn').attr("type", "add_to_cart");
                 }
-
-                if (warranty_check) {
-                    $('.prdt-detail-color-warranty-select').find(':selected').attr('count-id', count)
-                }
             } else {
                 if ((parseInt(count) + parseInt(remaining_warranty_count)) > parseInt(total_stock_count)) {
                     if (btn_sign == '+' || btn_sign == '') {
                         if (total_stock_count == 0) {
                             Swal.fire({text: 'No stock is available', confirmButtonColor: "#e97730"});
                         } else {
-                            if (warranty_check && btn_sign == '') {
-                                if (count < current_count && count < 1) {
+                            // if (warranty_check && btn_sign == '') {
+                                if (warranty_check == 1 && (btn_sign == '' || btn_sign == '+')) {
+                                    if (count < current_count && count < 1) {
                                     $(this).closest('.product-details-action-wrap').find('.cart-btn').html('Add to Cart');
                                     $(this).closest('.product-details-action-wrap').find('.cart-btn').attr("type", "add_to_cart");
                                 } else {
@@ -536,12 +529,9 @@ $(document).ready(function () {
                         }
                         if (btn_sign == '+') {
                             $('.cart-plus-minus-box-prdt-detail').val(parseInt(count) - 1);
-                            if (warranty_check) {
-                                $('.prdt-detail-color-warranty-select').find(':selected').attr('count-id', (parseInt(count) - 1))
-                            }
                         }
                     } else if (btn_sign == '-') {
-                        if (warranty_check && count >= 1) {
+                        if (warranty_check == 1 && count >= 1) {
                             $(this).closest('.product-details-action-wrap').find('.cart-btn').html('Add to Cart');
                             $(this).closest('.product-details-action-wrap').find('.cart-btn').attr("type", "add_to_cart");
                         }
@@ -558,7 +548,7 @@ $(document).ready(function () {
         let stock = $(this).attr("color-stock");
         let warranty_check = $(this).attr("warranty-check");
         let prdt_size_color_id = $(this).attr("prdt-size-color-id");
-        if (warranty_check) {
+        if (warranty_check == 1) {
             getColorWarrantList(color_id, prdt_size_color_id, stock);
         } else {
             prdtDetailAddToCartCountBtn(stock, count);

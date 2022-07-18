@@ -183,7 +183,7 @@ if (mysqli_num_rows($product_size_query)) { ?>
                 <ul>
                     <?php $c = 0;
                     foreach ($product_size['color_stock'] as $row) {
-                        $col_count = $row['warranty_data'];
+                        $col_count = $row['count'];
                         if (count($row['warranty_data']) > 0) {
                             $col_count = $row['warranty_data'][0]['warranty_count'];
                         }
