@@ -817,6 +817,7 @@ $(document).ready(function () {
         let form_data = new FormData();
         form_data.append('uid', uid);
         form_data.append('vendor_uid', vendor_uid);
+        form_data.append('type', 'checkout');
 
         let cart_tr = $('.cart-tr');
         for (var i = 0; i < cart_tr.length; i++) {

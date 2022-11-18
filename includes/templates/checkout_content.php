@@ -5,6 +5,7 @@ $vendor_uid = isset($_COOKIE['naiz_web_vendor_uid']) ? $_COOKIE['naiz_web_vendor
 $post = [
     'uid' => $user_uid,
     'vendor_uid' => $vendor_uid,
+    'type' => 'initial',
 ];
 $url = BASE_URL . "get_vendor_pincode";
 $result = getApiData($url, $post);
