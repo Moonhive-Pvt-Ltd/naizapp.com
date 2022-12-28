@@ -22,14 +22,17 @@ $(document).ready(function () {
         $.ajax({
             url: url,
             headers: {
-                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Origin': 'https://admin.naizapp.com',
+                'Access-Control-Allow-Methods': 'GET, OPTIONS, POST, PUT'
             },
             type: "POST",
+            dataType: 'json',
             data: form_data,
             contentType: false,
             cache: false,
             processData: false,
             success: function (data) {
+                return;
                 $(btn).prop('disabled', false);
                 $(btn).html('Login');
                 if (data.status == 'Success') {
@@ -63,7 +66,7 @@ $(document).ready(function () {
         $.ajax({
             url: url,
             headers: {
-                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Origin': 'https://admin.naizapp.com',
             },
             crossDomain: true,
             type: "POST",
