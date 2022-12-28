@@ -21,6 +21,9 @@ $(document).ready(function () {
         let url = BASE_URL + "user_login";
         $.ajax({
             url: url,
+            headers: {
+                'Access-Control-Allow-Origin': '*',
+            },
             type: "POST",
             data: form_data,
             contentType: false,
@@ -59,6 +62,10 @@ $(document).ready(function () {
         $(btn).html('Please Wait');
         $.ajax({
             url: url,
+            headers: {
+                'Access-Control-Allow-Origin': '*',
+            },
+            crossDomain: true,
             type: "POST",
             data: form_data,
             contentType: false,
@@ -116,6 +123,9 @@ $(document).ready(function () {
         let url = BASE_URL + "update_user_profile";
         $.ajax({
             url: url,
+            headers: {
+                'Access-Control-Allow-Origin': '*',
+            },
             type: "POST",
             data: form_data,
             contentType: false,
@@ -147,6 +157,9 @@ $(document).ready(function () {
         let url = BASE_URL + "change_password";
         $.ajax({
             url: url,
+            headers: {
+                'Access-Control-Allow-Origin': '*',
+            },
             type: "POST",
             data: form_data,
             contentType: false,
@@ -172,6 +185,9 @@ $(document).ready(function () {
         let url = BASE_URL + "add_user_address";
         $.ajax({
             url: url,
+            headers: {
+                'Access-Control-Allow-Origin': '*',
+            },
             type: "POST",
             data: form_data,
             contentType: false,
@@ -297,6 +313,9 @@ $(document).ready(function () {
         let url = BASE_URL + "add_to_cart";
         $.ajax({
             url: url,
+            headers: {
+                'Access-Control-Allow-Origin': '*',
+            },
             type: "POST",
             data: form_data,
             contentType: false,
@@ -412,6 +431,9 @@ $(document).ready(function () {
             let url = BASE_URL + "add_to_cart";
             $.ajax({
                 url: url,
+                headers: {
+                    'Access-Control-Allow-Origin': '*',
+                },
                 type: "POST",
                 data: form_data,
                 contentType: false,
@@ -561,6 +583,9 @@ $(document).ready(function () {
         let url = BASE_URL + "applied_promo_code";
         $.ajax({
             url: url,
+            headers: {
+                'Access-Control-Allow-Origin': '*',
+            },
             type: "POST",
             data: form_data,
             contentType: false,
@@ -653,6 +678,9 @@ $(document).ready(function () {
                 let url = BASE_URL + "add_to_cart";
                 $.ajax({
                     url: url,
+                    headers: {
+                        'Access-Control-Allow-Origin': '*',
+                    },
                     type: "POST",
                     data: form_data,
                     contentType: false,
@@ -712,6 +740,9 @@ $(document).ready(function () {
                 let url = BASE_URL + "clear_cart";
                 $.ajax({
                     url: url,
+                    headers: {
+                        'Access-Control-Allow-Origin': '*',
+                    },
                     type: "POST",
                     data: form_data,
                     contentType: false,
@@ -773,6 +804,9 @@ $(document).ready(function () {
         let url = BASE_URL + "add_product_review";
         $.ajax({
             url: url,
+            headers: {
+                'Access-Control-Allow-Origin': '*',
+            },
             type: "POST",
             data: form_data,
             contentType: false,
@@ -831,6 +865,9 @@ $(document).ready(function () {
         let url = BASE_URL + "get_cart_list";
         $.ajax({
             url: url,
+            headers: {
+                'Access-Control-Allow-Origin': '*',
+            },
             type: "POST",
             data: form_data,
             contentType: false,
@@ -983,6 +1020,9 @@ $(document).ready(function () {
             let url = BASE_URL + "create_razorpay_order";
             $.ajax({
                 url: url,
+                headers: {
+                    'Access-Control-Allow-Origin': '*',
+                },
                 type: "POST",
                 data: form_data,
                 contentType: false,
@@ -1019,6 +1059,9 @@ $(document).ready(function () {
 
                                 $.ajax({
                                     url: url1,
+                                    headers: {
+                                        'Access-Control-Allow-Origin': '*',
+                                    },
                                     type: "POST",
                                     data: form_data1,
                                     contentType: false,
@@ -1057,6 +1100,9 @@ $(document).ready(function () {
                             let url3 = BASE_URL + "failed_order";
                             $.ajax({
                                 url: url3,
+                                headers: {
+                                    'Access-Control-Allow-Origin': '*',
+                                },
                                 type: "POST",
                                 data: form_data3,
                                 contentType: false,
@@ -1094,6 +1140,9 @@ $(document).ready(function () {
         let url = BASE_URL + "forgot_password";
         $.ajax({
             url: url,
+            headers: {
+                'Access-Control-Allow-Origin': '*',
+            },
             type: "POST",
             data: form_data,
             contentType: false,
@@ -1169,6 +1218,9 @@ $(document).ready(function () {
         let url = BASE_URL + "update_user_address";
         $.ajax({
             url: url,
+            headers: {
+                'Access-Control-Allow-Origin': '*',
+            },
             type: "POST",
             data: form_data,
             contentType: false,
