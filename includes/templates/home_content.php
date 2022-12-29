@@ -1,4 +1,5 @@
 <?php
+include_once '../functions.php';
 $vendor_uid = isset($_COOKIE['naiz_web_vendor_uid']) ? $_COOKIE['naiz_web_vendor_uid'] : '';
 $post = [
     'vendor_uid' => $vendor_uid,
@@ -325,3 +326,6 @@ if ($home_result['status'] == 'Success') {
         </div>
     </div>
 <?php } ?>
+
+<?php include_once '../footer_bottom.php'; ?>
+<?php include_once '../sidebar.php'; ?>

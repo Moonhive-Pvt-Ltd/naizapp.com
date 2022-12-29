@@ -21,13 +21,7 @@ $(document).ready(function () {
         let url = BASE_URL + "user_login";
         $.ajax({
             url: url,
-            headers: {
-                'Access-Control-Allow-Origin': 'https://admin.naizapp.com',
-                'Access-Control-Allow-Methods': 'GET, OPTIONS, POST, PUT',
-                'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept'
-            },
             type: "POST",
-            dataType: 'json',
             data: form_data,
             contentType: false,
             cache: false,
@@ -65,11 +59,6 @@ $(document).ready(function () {
         $(btn).html('Please Wait');
         $.ajax({
             url: url,
-            headers: {
-                'Access-Control-Allow-Origin': 'https://admin.naizapp.com',
-                'Access-Control-Allow-Methods': 'GET, POST, PUT',
-                'Access-Control-Allow-Headers': 'Accept, Content-Type, Origin, Authorization, X-Requested-With, Content-Language, Subject'
-            },
             type: "POST",
             data: form_data,
             contentType: false,
@@ -127,9 +116,6 @@ $(document).ready(function () {
         let url = BASE_URL + "update_user_profile";
         $.ajax({
             url: url,
-            headers: {
-                'Access-Control-Allow-Origin': '*',
-            },
             type: "POST",
             data: form_data,
             contentType: false,
@@ -161,9 +147,6 @@ $(document).ready(function () {
         let url = BASE_URL + "change_password";
         $.ajax({
             url: url,
-            headers: {
-                'Access-Control-Allow-Origin': '*',
-            },
             type: "POST",
             data: form_data,
             contentType: false,
@@ -189,9 +172,6 @@ $(document).ready(function () {
         let url = BASE_URL + "add_user_address";
         $.ajax({
             url: url,
-            headers: {
-                'Access-Control-Allow-Origin': '*',
-            },
             type: "POST",
             data: form_data,
             contentType: false,
@@ -317,9 +297,6 @@ $(document).ready(function () {
         let url = BASE_URL + "add_to_cart";
         $.ajax({
             url: url,
-            headers: {
-                'Access-Control-Allow-Origin': '*',
-            },
             type: "POST",
             data: form_data,
             contentType: false,
@@ -404,7 +381,7 @@ $(document).ready(function () {
                     if (warranty_check == 1) {
                         let current_value = $('.prdt-detail-color-warranty-select').find(':selected').attr('count-id');
                         if (val >= 1 && val < current_value) {
-                        // if (val > 1 && val < current_value) {
+                            // if (val > 1 && val < current_value) {
 
                         } else {
                             Swal.fire({
@@ -435,9 +412,6 @@ $(document).ready(function () {
             let url = BASE_URL + "add_to_cart";
             $.ajax({
                 url: url,
-                headers: {
-                    'Access-Control-Allow-Origin': '*',
-                },
                 type: "POST",
                 data: form_data,
                 contentType: false,
@@ -536,8 +510,8 @@ $(document).ready(function () {
                             Swal.fire({text: 'No stock is available', confirmButtonColor: "#e97730"});
                         } else {
                             // if (warranty_check && btn_sign == '') {
-                                if (warranty_check == 1 && (btn_sign == '' || btn_sign == '+')) {
-                                    if (count < current_count && count < 1) {
+                            if (warranty_check == 1 && (btn_sign == '' || btn_sign == '+')) {
+                                if (count < current_count && count < 1) {
                                     $(this).closest('.product-details-action-wrap').find('.cart-btn').html('Add to Cart');
                                     $(this).closest('.product-details-action-wrap').find('.cart-btn').attr("type", "add_to_cart");
                                 } else {
@@ -587,9 +561,6 @@ $(document).ready(function () {
         let url = BASE_URL + "applied_promo_code";
         $.ajax({
             url: url,
-            headers: {
-                'Access-Control-Allow-Origin': '*',
-            },
             type: "POST",
             data: form_data,
             contentType: false,
@@ -682,9 +653,6 @@ $(document).ready(function () {
                 let url = BASE_URL + "add_to_cart";
                 $.ajax({
                     url: url,
-                    headers: {
-                        'Access-Control-Allow-Origin': '*',
-                    },
                     type: "POST",
                     data: form_data,
                     contentType: false,
@@ -744,9 +712,6 @@ $(document).ready(function () {
                 let url = BASE_URL + "clear_cart";
                 $.ajax({
                     url: url,
-                    headers: {
-                        'Access-Control-Allow-Origin': '*',
-                    },
                     type: "POST",
                     data: form_data,
                     contentType: false,
@@ -808,9 +773,6 @@ $(document).ready(function () {
         let url = BASE_URL + "add_product_review";
         $.ajax({
             url: url,
-            headers: {
-                'Access-Control-Allow-Origin': '*',
-            },
             type: "POST",
             data: form_data,
             contentType: false,
@@ -869,9 +831,6 @@ $(document).ready(function () {
         let url = BASE_URL + "get_cart_list";
         $.ajax({
             url: url,
-            headers: {
-                'Access-Control-Allow-Origin': '*',
-            },
             type: "POST",
             data: form_data,
             contentType: false,
@@ -917,13 +876,33 @@ $(document).ready(function () {
             const modal_id = document.querySelector('#modalDivId');
             const modal = bootstrap.Modal.getInstance(modal_id);
             modal.hide();
-            location.reload();
+            getHomeContent();
+            // location.reload();
         } else {
             Swal.fire({text: 'Select a Vendor', confirmButtonColor: "#e97730"});
         }
     });
+    
+    if (document.getElementById('homeContent')) {
+        let naiz_web_vendor_uid = getCookie('naiz_web_vendor_uid');
+        if (naiz_web_vendor_uid != '') {
+            getHomeContent();
+        }
+    }
 
-    if (document.getElementById('navBarId')) {
+    if (document.getElementById('landingPage')) {
+        var myModal = new bootstrap.Modal(document.getElementById('modalDivId'), {
+            backdrop: 'static',
+            keyboard: false
+        });
+        myModal.show();
+        modalContent('landing_page', '');
+    }
+
+    $(document).on('click', '.on-close-landing-modal-click', function () {
+        const modal_id = document.querySelector('#modalDivId');
+        const modal = bootstrap.Modal.getInstance(modal_id);
+        modal.hide();
         let naiz_web_vendor_uid = getCookie('naiz_web_vendor_uid');
         if (naiz_web_vendor_uid == '') {
             var myModal = new bootstrap.Modal(document.getElementById('modalDivId'), {
@@ -933,7 +912,7 @@ $(document).ready(function () {
             myModal.show();
             modalContent('store_list', '');
         }
-    }
+    });
 
     $(document).on('click', '#vendorListId .single-store', function () {
         let vendor_uid = $(this).attr('vendor-uid');
@@ -1024,9 +1003,6 @@ $(document).ready(function () {
             let url = BASE_URL + "create_razorpay_order";
             $.ajax({
                 url: url,
-                headers: {
-                    'Access-Control-Allow-Origin': '*',
-                },
                 type: "POST",
                 data: form_data,
                 contentType: false,
@@ -1063,9 +1039,6 @@ $(document).ready(function () {
 
                                 $.ajax({
                                     url: url1,
-                                    headers: {
-                                        'Access-Control-Allow-Origin': '*',
-                                    },
                                     type: "POST",
                                     data: form_data1,
                                     contentType: false,
@@ -1104,9 +1077,6 @@ $(document).ready(function () {
                             let url3 = BASE_URL + "failed_order";
                             $.ajax({
                                 url: url3,
-                                headers: {
-                                    'Access-Control-Allow-Origin': '*',
-                                },
                                 type: "POST",
                                 data: form_data3,
                                 contentType: false,
@@ -1144,9 +1114,6 @@ $(document).ready(function () {
         let url = BASE_URL + "forgot_password";
         $.ajax({
             url: url,
-            headers: {
-                'Access-Control-Allow-Origin': '*',
-            },
             type: "POST",
             data: form_data,
             contentType: false,
@@ -1222,9 +1189,6 @@ $(document).ready(function () {
         let url = BASE_URL + "update_user_address";
         $.ajax({
             url: url,
-            headers: {
-                'Access-Control-Allow-Origin': '*',
-            },
             type: "POST",
             data: form_data,
             contentType: false,
@@ -1294,6 +1258,8 @@ function modalContent(modal_type, params) {
         url = "includes/modals/store_list_modal_content.php";
     } else if (modal_type == 'login') {
         url = "includes/modals/login_modal_content.php";
+    } else if (modal_type == 'landing_page') {
+        url = "includes/modals/landing_modal_content.php";
     }
     $.ajax({
         type: "GET",
@@ -1539,4 +1505,18 @@ function prdtDetailPriceOfferPrice(price, offer_price) {
     } else {
         $('.product-details-price').html('<span class="new-price">₹' + price + '</span>')
     }
+}
+
+function getHomeContent() {
+    $.ajax({
+        type: "GET",
+        url: "includes/templates/home_content.php",
+        cache: true,
+        beforeSend: function () {
+            $('#homeContent').html('')
+        },
+        success: function (html) {
+            $('#homeContent').html(html)
+        }
+    })
 }

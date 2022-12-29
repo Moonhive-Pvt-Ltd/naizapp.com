@@ -20,8 +20,8 @@ if ($result['status'] == 'Success') {
                         <h6><?php echo $vendor['place'] ?></h6>
                         <ul>
                             <li><?php echo $vendor['address'] ?></li>
-                            <li><?php echo $vendor['phone_number'] ?></li>
-                            <li><?php echo $vendor['email'] ?></li>
+<!--                            <li>--><?php //echo $vendor['phone_number'] ?><!--</li>-->
+<!--                            <li>--><?php //echo $vendor['email'] ?><!--</li>-->
                         </ul>
                     </div>
                     <div>
