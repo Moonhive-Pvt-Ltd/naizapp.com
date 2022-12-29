@@ -23,7 +23,8 @@ $(document).ready(function () {
             url: url,
             headers: {
                 'Access-Control-Allow-Origin': 'https://admin.naizapp.com',
-                'Access-Control-Allow-Methods': 'GET, OPTIONS, POST, PUT'
+                'Access-Control-Allow-Methods': 'GET, OPTIONS, POST, PUT',
+                'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept'
             },
             type: "POST",
             dataType: 'json',
@@ -32,7 +33,6 @@ $(document).ready(function () {
             cache: false,
             processData: false,
             success: function (data) {
-                return;
                 $(btn).prop('disabled', false);
                 $(btn).html('Login');
                 if (data.status == 'Success') {
@@ -67,8 +67,9 @@ $(document).ready(function () {
             url: url,
             headers: {
                 'Access-Control-Allow-Origin': 'https://admin.naizapp.com',
+                'Access-Control-Allow-Methods': 'GET, POST, PUT',
+                'Access-Control-Allow-Headers': 'Accept, Content-Type, Origin, Authorization, X-Requested-With, Content-Language, Subject'
             },
-            crossDomain: true,
             type: "POST",
             data: form_data,
             contentType: false,
