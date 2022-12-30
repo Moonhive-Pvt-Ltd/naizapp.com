@@ -1,2 +1,4 @@
 .idea
 includes/db_config.php
+api/v1/user_web/config.php
+vendor

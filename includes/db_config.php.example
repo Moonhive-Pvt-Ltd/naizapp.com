@@ -4,5 +4,5 @@ define("USER","naizadmin");
 define("PASSWORD","nbNxg2Vn#p2D4:W-ryr~5uyd5f^c3VVE");
 define("DATABASE","naiztest09");
 
-define("BASE_URL", "https://admin.naizapp.com/api/v1/user_web/");
+define("BASE_URL", "https://naizapp.com/api/v1/user_web/");
 ?>
