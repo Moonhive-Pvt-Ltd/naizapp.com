@@ -1,5 +1,5 @@
 $(document).ready(function () {
-    let BASE_URL = 'https://admin.naizapp.com/api/v1/user_web/';
+    let BASE_URL = 'https://naizapp.com/api/v1/user_web/';
 
     const Toast = Swal.mixin({
         toast: true,
@@ -882,7 +882,7 @@ $(document).ready(function () {
             Swal.fire({text: 'Select a Vendor', confirmButtonColor: "#e97730"});
         }
     });
-    
+
     if (document.getElementById('homeContent')) {
         let naiz_web_vendor_uid = getCookie('naiz_web_vendor_uid');
         if (naiz_web_vendor_uid != '') {
