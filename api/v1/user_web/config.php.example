@@ -10,9 +10,9 @@ class config
     public function __construct()
     {
        $this->DB_HOST = "localhost";
-       $this->DB_USER = "naizadmin";
-       $this->DB_PASS = "nbNxg2Vn#p2D4:W-ryr~5uyd5f^c3VVE";
-       $this->DB_DB = "naiztest09";
+       $this->DB_USER = "naizapp";
+       $this->DB_PASS = "qkJQx446Txyvn*V&";
+       $this->DB_DB = "naizapp";
     }
 
     /**
