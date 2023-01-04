@@ -220,7 +220,8 @@ if ($user_uid) {
                             <input type="hidden" value="<?php echo $email; ?>" id="userEmail">
                             <input type="hidden" value="<?php echo $mobile; ?>" id="userMobile">
                             <input type="hidden" value="<?php echo $total_cost; ?>" id="totalAmount">
-                            <a href="" class="place-order-btn">Place Order</a>
+                            <a href="" class="place-order-btn">Online Payment</a>
+                            <a href="" class="on-cash-on-delivery-btn mt-4">Cash On Delivery</a>
                         </div>
                     </div>
                 </div>

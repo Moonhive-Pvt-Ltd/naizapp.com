@@ -1000,6 +1000,7 @@ $(document).ready(function () {
             form_data.append("tax", tax);
             form_data.append("shipping_fee", shipping_fee);
             form_data.append("address_id", selected_address_id);
+            form_data.append("order_type", 'online');
 
             let url = BASE_URL + "create_razorpay_order";
             $.ajax({
@@ -1054,7 +1055,7 @@ $(document).ready(function () {
                                             window.location.href = './index';
                                         } else {
                                             $(btn).prop('disabled', false);
-                                            $(btn).html('Place Order');
+                                            $(btn).html('Online Payment');
                                             Swal.fire({text: response.msg, confirmButtonColor: "#e97730"})
                                         }
                                     }
@@ -1063,7 +1064,7 @@ $(document).ready(function () {
                             "modal": {
                                 "ondismiss": function () {
                                     $(btn).prop('disabled', false);
-                                    $(btn).html('Place Order');
+                                    $(btn).html('Online Payment');
                                     Swal.fire({text: 'Payment Cancelled', confirmButtonColor: "#e97730"})
                                 }
                             }
@@ -1085,7 +1086,7 @@ $(document).ready(function () {
                                 processData: false,
                                 success: function (response) {
                                     $(btn).prop('disabled', false);
-                                    $(btn).html('Place Order');
+                                    $(btn).html('Online Payment');
                                     Swal.fire({text: response.msg, confirmButtonColor: "#e97730"});
                                 }
                             })
@@ -1099,6 +1100,84 @@ $(document).ready(function () {
                             Swal.fire({text: response.msg, confirmButtonColor: "#e97730"});
                         }
                     }
+                }
+            });
+        } else {
+            Swal.fire({text: 'Choose Address', confirmButtonColor: "#e97730"});
+        }
+    });
+
+    $(document).on('click', '.on-cash-on-delivery-btn', function (e) {
+        e.preventDefault();
+        let btn = $(this);
+        let uid = getCookie('naiz_web_user_uid');
+        let vendor_uid = $('#vendorUid').val();
+        let amount = $('#totalAmount').val();
+        let promo_code_id = $('#promoCodeId').val();
+        let promo_code = '';
+        let flat_rate = 0;
+        if (promo_code_id) {
+            promo_code = $('#promoCode').val();
+            flat_rate = $('.flat-rate').text().trim();
+        }
+        let tax = $('.tax').text().trim();
+        let selected_address_id = $('#selectedAddressId').val();
+        let shipping_fee = 0;
+        if (selected_address_id) {
+            shipping_fee = $('.shipping-fee').text().trim();
+        }
+
+        if (selected_address_id) {
+            Swal.fire({
+                title: '<div class="mt-4"><h5>Do you want to place an order?</h5></div>',
+                showCancelButton: true,
+                width: 500,
+                padding: 8,
+                confirmButtonText: `Yes`,
+                confirmButtonColor: "#e97730",
+                cancelButtonText: `No`,
+            }).then((result) => {
+                if (result.value) {
+                    $(btn).prop('disabled', true);
+                    $(btn).html('Please Wait');
+                    let form_data = new FormData();
+                    form_data.append("uid", uid);
+                    form_data.append("vendor_uid", vendor_uid);
+                    form_data.append("amount", amount);
+                    form_data.append("promo_code_id", promo_code_id);
+                    form_data.append("promo_code", promo_code);
+                    form_data.append("flat_rate", flat_rate);
+                    form_data.append("tax", tax);
+                    form_data.append("shipping_fee", shipping_fee);
+                    form_data.append("address_id", selected_address_id);
+                    form_data.append("order_type", 'cod');
+
+                    let url = BASE_URL + "create_razorpay_order";
+                    $.ajax({
+                        url: url,
+                        type: "POST",
+                        data: form_data,
+                        contentType: false,
+                        cache: false,
+                        processData: false,
+                        success: function (response) {
+                            $(btn).prop('disabled', false);
+                            $(btn).html('Cash On Delivery');
+                            if (response.status == 'Success') {
+                                Toast.fire({
+                                    type: 'success',
+                                    title: 'Placed Successfully'
+                                });
+                                window.location.href = './index';
+                            } else {
+                                if (response.error_type == 1) {
+                                    window.location.href = './cart';
+                                } else {
+                                    Swal.fire({text: response.msg, confirmButtonColor: "#e97730"});
+                                }
+                            }
+                        }
+                    });
                 }
             });
         } else {
