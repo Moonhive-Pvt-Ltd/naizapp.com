@@ -49,6 +49,7 @@ if ($user_uid) {
                     <input type="text" placeholder="Coupon code" name="promo_code" class="change-promo-code"
                            id="promoCode" required>
                     <input type="hidden" value="<?php echo $subtotal; ?>" name="total_cost">
+                    <input type="hidden" name="vendor_uid" value="<?php echo $vendor_uid; ?>">
                     <input type="hidden" name="uid" value="<?php echo $user_uid; ?>">
                     <input type="submit" value="Apply Coupon" id="applyCouponBtn">
                 </form>

@@ -553,6 +553,7 @@ $(document).ready(function () {
         } else {
             prdtDetailAddToCartCountBtn(stock, count);
         }
+        getColorImage();
     });
 
     $(document).on('submit', '#appliedPromoCode', function (e) {
@@ -1362,6 +1363,7 @@ function getPrdtSizeDetail(j) {
         $('#prdtSizeDetailPriceContent').html($(response)[0]);
         $('#prdtSizeDetailColorCartContent').html($(response)[2]);
         $('#prdtSizeDetailContent').html($(response)[4]);
+        getColorImage();
     })
 }
 
@@ -1517,6 +1519,21 @@ function getHomeContent() {
         },
         success: function (html) {
             $('#homeContent').html(html)
+        }
+    })
+}
+
+function getColorImage() {
+    var color_id = $('.prdt-color-select.active').attr('color-id');
+    var product_uid = $('#productUid').val();
+    let data = 'color_id=' + color_id + '&product_uid=' + product_uid;
+    $.ajax({
+        type: "GET",
+        url: "includes/templates/product_color_image_content.php",
+        data: data,
+        cache: true,
+        success: function (html) {
+            $('#prdtImgContent').html(html);
         }
     })
 }

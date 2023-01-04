@@ -3,8 +3,8 @@ $vendor_uid = isset($_COOKIE['naiz_web_vendor_uid']) ? $_COOKIE['naiz_web_vendor
 $product_uid = isset($_GET['id']) ? $_GET['id'] : '';
 
 $post = [
-  'product_uid' => $product_uid,
-  'vendor_uid' => $vendor_uid,
+    'product_uid' => $product_uid,
+    'vendor_uid' => $vendor_uid,
 ];
 $url = BASE_URL . "get_product_details";
 $result = getApiData($url, $post);
@@ -26,47 +26,7 @@ if ($prdt_detail != null) {
     <div class="product-details-area pb-50 pt-100">
         <div class="container">
             <div class="row">
-                <div class="col-lg-6">
-                    <div class="product-details-img-wrap product-details-vertical-wrap" data-aos="fade-up"
-                         data-aos-delay="200">
-                        <div class="product-details-small-img-wrap">
-                            <div class="swiper-container product-details-small-img-slider-1 pd-small-img-style">
-                                <div class="swiper-wrapper">
-                                    <?php foreach ($product_image AS $prdt_img) { ?>
-                                        <div class="swiper-slide">
-                                            <div class="product-details-small-img">
-                                                <img src="<?php echo $prdt_img; ?>"
-                                                     alt="Product Thumnail">
-                                            </div>
-                                        </div>
-                                    <?php } ?>
-                                </div>
-                            </div>
-                            <div class="pd-prev pd-nav-style"><i class="ti-angle-up"></i></div>
-                            <div class="pd-next pd-nav-style"><i class="ti-angle-down"></i></div>
-                        </div>
-                        <div class="swiper-container product-details-big-img-slider-1 pd-big-img-style">
-                            <div class="swiper-wrapper">
-                                <?php foreach ($product_image AS $prdt_img) { ?>
-                                    <div class="swiper-slide">
-                                        <div class="easyzoom-style">
-                                            <div class="easyzoom easyzoom--overlay">
-                                                <a href="<?php echo $prdt_img; ?>">
-                                                    <img src="<?php echo $prdt_img; ?>"
-                                                         alt="">
-                                                </a>
-                                            </div>
-                                            <a class="easyzoom-pop-up img-popup"
-                                               href="<?php echo $prdt_img; ?>">
-                                                <i class="pe-7s-search"></i>
-                                            </a>
-                                        </div>
-                                    </div>
-                                <?php } ?>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <div class="col-lg-6" id="prdtImgContent"></div>
                 <div class="col-lg-6">
                     <div class="product-details-content" data-aos="fade-up" data-aos-delay="400">
                         <h2><?php echo $prdt_detail['name']; ?></h2>
@@ -168,10 +128,9 @@ if ($prdt_detail != null) {
                         <div id="prdtDetailReviewTableContent"></div>
                     </div>
                     <div id="prdtDetailAddReviewTableContent">
-                   </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 <?php } ?>
-
