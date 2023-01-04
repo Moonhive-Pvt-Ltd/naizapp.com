@@ -750,6 +750,7 @@ class API extends REST
                                                                warranty.status AS warranty_status,
                                                                product_size_color_warranty.price AS color_price,
                                                                product_size_color_warranty.offer_price AS color_offer_price,
+                                                               product_color_image.image AS product_color_image_name,
                                                                GROUP_CONCAT(DISTINCT category.name SEPARATOR ', ') AS category
                                                         FROM cart
                                                         INNER JOIN vendor
@@ -767,6 +768,9 @@ class API extends REST
                                                         ON product.id = product_size.product_id
                                                         INNER JOIN product_image
                                                         ON product_image.product_id = product.id
+                                                        LEFT JOIN product_color_image 
+                                                        ON product_color_image.product_id = product.id
+                                                        AND product_color_image.color_id = color.id
                                                         LEFT JOIN product_size_color
                                                         ON product_size_color.product_size_id = cart.product_size_id
                                                         AND product_size_color.color_id = cart.color_id
@@ -796,7 +800,7 @@ class API extends REST
                         $cart_rlt['product_uid'] = $row['uid'];
                         $cart_rlt['name'] = $row['name'];
                         $cart_rlt['color_code'] = $row['color_code'];
-                        $cart_rlt['image'] = self::URL . 'vendor_data/product/' . $row['image'];
+                        $cart_rlt['image'] = $row['product_color_image_name'] ? (self::URL . 'vendor_data/product/' . $row['product_color_image_name']) : (self::URL . 'vendor_data/product/' . $row['image']);
                         $cart_rlt['stock'] = $row['stock'];
                         $cart_rlt['color_id'] = $row['color_id'];
                         $cart_rlt['is_warranty'] = $row['warranty_id'] ? 1 : 0;
@@ -1096,40 +1100,114 @@ class API extends REST
         }
 
         $uid = isset($this->_request['uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['uid']) : null;
+        $vendor_uid = isset($this->_request['vendor_uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['vendor_uid']) : null;
         $promo_code = isset($this->_request['promo_code']) ? mysqli_real_escape_string($this->mysqli, $this->_request['promo_code']) : null;
         $total_cost = isset($this->_request['total_cost']) ? mysqli_real_escape_string($this->mysqli, $this->_request['total_cost']) : null;
 
         $user_id = $this->db_user->isValidUserId($uid);
         if ($user_id) {
-            $current_date = date('Y-m-d');
-            $promo_code_check = mysqli_query($this->mysqli, "SELECT id, flat_rate 
-                                                                    FROM promo_code 
-                                                                    WHERE code = BINARY '$promo_code' 
-                                                                    AND (expiry_date >= '$current_date'
-                                                                    OR expiry_date IS NULL)
-                                                                    AND status = 'active'");
-            if (mysqli_num_rows($promo_code_check)) {
-                $row = mysqli_fetch_array($promo_code_check);
-                $promo_code_id = $row['id'];
-                $flat_rate = $row['flat_rate'];
-                if ($total_cost > $flat_rate) {
-                    $user_promo_code_exist_check = mysqli_query($this->mysqli, "SELECT id FROM orders 
+            $vendor_id = $this->db_user->isValidVendorId($vendor_uid);
+            if ($vendor_id) {
+                $current_date = date('Y-m-d');
+                $promo_code_check = mysqli_query($this->mysqli, "SELECT SUM(CASE WHEN (table1.warranty_price > 0
+                                                                               AND table1.warranty_price IS NOT NULL) 
+                                                                               THEN (table1.warranty_price  * table1.count)
+                                                                               ELSE (table1.price  * table1.count) END) AS display_price_val,
+                                                                               table1.id, 
+                                                                               table1.flat_rate, 
+                                                                               table1.flat_rate_percent, 
+                                                                               table1.category 
+                                                                               FROM (SELECT promo_code.id, 
+                                                                                            promo_code.flat_rate, 
+                                                                                            promo_code.flat_rate_percent, 
+                                                                                            GROUP_CONCAT(DISTINCT category.name SEPARATOR ', ') AS category,
+                                                                                            product_size.offer_price  AS offer_price_val, 
+                                                                                            product_size.price  AS price_val,
+                                                                                            product_size_color_warranty.offer_price AS warranty_offer_price_val, 
+                                                                                            product_size_color_warranty.price AS warranty_price_val,
+                                                                                            (CASE WHEN (product_size_color_warranty.offer_price > 0
+                                                                                            AND product_size_color_warranty.offer_price IS NOT NULL) 
+                                                                                            THEN product_size_color_warranty.offer_price
+                                                                                            ELSE product_size_color_warranty.price END) AS warranty_price,
+                                                                                            (CASE WHEN product_size.offer_price > 0 
+                                                                                            THEN product_size.offer_price
+                                                                                            ELSE product_size.price END) AS price,
+                                                                                            cart.count,
+                                                                                            cart.color_id,
+                                                                                            product_size.id AS prdt_size_id
+                                                                        FROM cart
+                                                                        LEFT JOIN product_size
+                                                                        ON product_size.id = cart.product_size_id
+                                                                        LEFT JOIN product_size_color
+                                                                        ON product_size_color.product_size_id = cart.product_size_id
+                                                                        LEFT JOIN product_size_color_warranty
+                                                                        ON product_size_color_warranty.product_size_color_id = product_size_color.id
+                                                                        AND product_size_color.color_id = cart.color_id
+                                                                        AND product_size_color_warranty.warranty_id = cart.warranty_id
+                                                                        LEFT JOIN product_category
+                                                                        ON product_category.product_id = product_size.product_id
+                                                                        LEFT JOIN category
+                                                                        ON category.id = product_category.category_id
+                                                                        AND category.status = 'active' 
+                                                                        LEFT JOIN category_promo_code
+                                                                        ON category_promo_code.category_id = category.id
+                                                                        LEFT JOIN promo_code
+                                                                        ON promo_code.id = category_promo_code.promo_code_id
+                                                                        AND promo_code.code = BINARY '$promo_code'
+                                                                        AND (promo_code.expiry_date >= '$current_date'
+                                                                        OR promo_code.expiry_date IS NULL)
+                                                                        AND promo_code.status = 'active'
+                                                                        WHERE cart.user_id = '$user_id'
+                                                                        AND cart.vendor_id = '$vendor_id'
+                                                                        AND (promo_code.flat_rate IS NOT NULL 
+                                                                        OR promo_code.flat_rate_percent IS NOT NULL)
+                                                                        GROUP BY cart.id) AS table1");
+                if (mysqli_num_rows($promo_code_check)) {
+                    $rate = 0;
+                    $row = mysqli_fetch_array($promo_code_check);
+                    if ($row['id']) {
+                        $promo_code_id = $row['id'];
+                        $display_price = $row['display_price_val'];
+                        $flat_rate = $row['flat_rate'];
+                        $flat_rate_percent = $row['flat_rate_percent'];
+                        $category = $row['category'];
+                        if ($flat_rate) {
+                            if ($display_price >= $flat_rate) {
+                                $rate = $flat_rate;
+                            } else {
+                                $success = array('status' => "Failed", 'msg' => "Price of the products under $category must be greater than Rs." . $flat_rate);
+                                $this->response($this->json($success), 200);
+                            }
+                        } else if ($flat_rate_percent) {
+                            $rate = $display_price * ($flat_rate_percent / 100);
+                            if ($display_price >= $rate) {
+                            } else {
+                                $success = array('status' => "Failed", 'msg' => "Price of the products under $category must be greater than Rs." . $rate);
+                                $this->response($this->json($success), 200);
+                            }
+                        }
+
+                        $user_promo_code_exist_check = mysqli_query($this->mysqli, "SELECT id FROM orders 
                                                                                        WHERE user_id = '$user_id' 
                                                                                        AND promo_code_id = '$promo_code_id'
                                                                                        AND status = 'payment_success'");
-                    if (!mysqli_num_rows($user_promo_code_exist_check)) {
-                        $success = array('status' => "Success", 'msg' => "Promo Code Applied Successfully", 'flat_rate' => $flat_rate, 'promo_code_id' => $promo_code_id);
-                        $this->response($this->json($success), 200);
+                        if (!mysqli_num_rows($user_promo_code_exist_check)) {
+                            $success = array('status' => "Success", 'msg' => "Promo Code Applied Successfully", 'flat_rate' => $rate, 'promo_code_id' => $promo_code_id);
+                            $this->response($this->json($success), 200);
+                        } else {
+                            $success = array('status' => "Failed", 'msg' => "Already Applied", 'flat_rate' => 0, 'promo_code_id' => '');
+                            $this->response($this->json($success), 200);
+                        }
                     } else {
-                        $success = array('status' => "Failed", 'msg' => "Already Applied", 'flat_rate' => 0, 'promo_code_id' => '');
+                        $success = array('status' => "Failed", 'msg' => "Invalid Promo Code");
                         $this->response($this->json($success), 200);
                     }
                 } else {
-                    $success = array('status' => "Failed", 'msg' => "Sub Total must be greater than Rs." . $flat_rate);
+                    $success = array('status' => "Failed", 'msg' => "Invalid Promo Code");
                     $this->response($this->json($success), 200);
                 }
             } else {
-                $success = array('status' => "Failed", 'msg' => "Invalid Promo Code");
+                $success = array('status' => "Failed", 'msg' => "Vendor not found");
                 $this->response($this->json($success), 200);
             }
         } else {
@@ -1800,11 +1878,22 @@ class API extends REST
 
                 $query_rlt2 = mysqli_query($this->mysqli, $query);
                 if (mysqli_num_rows($query_rlt2)) {
+                    $promo_code_rlt = mysqli_query($this->mysqli, "SELECT *
+                                                                          FROM promo_code
+                                                                          WHERE id = $promo_code_id");
+                    $flat_rate_percent = 0;
+                    if(mysqli_num_rows($promo_code_rlt)) {
+                        $promo_row = mysqli_fetch_array($promo_code_rlt);
+                        $flat_rate_percent = $promo_row['flat_rate_percent'] ? $promo_row['flat_rate_percent'] : 0;
+                    }
+
                     $orders = mysqli_query($this->mysqli, "INSERT INTO orders (uid, vendor_id, user_id,
                                                                                      promo_code_id, promo_code, flat_rate,
+                                                                                     flat_rate_percent,
                                                                                      tax, shipping_fee, total_cost)
                                                                   VALUES('$order_uid', '$vendor_id', '$user_id',
                                                                           $promo_code_id, $promo_code, '$flat_rate',
+                                                                          '$flat_rate_percent',
                                                                           '$total_tax', '$shipping_fee', '$total_amount')");
                     $order_id = $this->mysqli->insert_id;
                     if ($order_id) {
