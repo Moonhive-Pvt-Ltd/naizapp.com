@@ -1190,7 +1190,8 @@ class API extends REST
                         $user_promo_code_exist_check = mysqli_query($this->mysqli, "SELECT id FROM orders 
                                                                                        WHERE user_id = '$user_id' 
                                                                                        AND promo_code_id = '$promo_code_id'
-                                                                                       AND status = 'payment_success'");
+                                                                                       AND (status = 'payment_success'
+                                                                                       OR status = 'order_success')");
                         if (!mysqli_num_rows($user_promo_code_exist_check)) {
                             $success = array('status' => "Success", 'msg' => "Promo Code Applied Successfully", 'flat_rate' => $rate, 'promo_code_id' => $promo_code_id);
                             $this->response($this->json($success), 200);
@@ -1253,6 +1254,7 @@ class API extends REST
                     $order_rlt['total_cost'] = $row['total_cost'];
                     $order_rlt['status'] = ucwords(str_replace('_', ' ', $row['status']));
                     $order_rlt['place'] = $row['place'];
+                    $order_rlt['order_type'] = $row['order_type'] == 'cod' ? "Cash on Delivery" : "Online Payment";
                     $order_rlt['timestamp'] = $row['timestamp'];
                     array_push($orders_datas, $order_rlt);
                 }
@@ -1325,7 +1327,7 @@ class API extends REST
                         $display_price = $row['offer_price'] > 0 ? $row['offer_price'] : $row['price'];
                         $order_rlt['stock_count'] = $row['count'];
                         $order_rlt['display_price'] = $display_price * $row['count'];
-                        if ($row['order_status'] == 'payment_success') {
+                        if ($row['order_status'] == 'payment_success' || $row['order_status'] == 'order_success') {
                             $order_rlt['status'] = $row['status'];
                         } else {
                             $order_rlt['status'] = '';
@@ -1780,6 +1782,7 @@ class API extends REST
         $total_tax = isset($this->_request['tax']) ? mysqli_real_escape_string($this->mysqli, $this->_request['tax']) : null;
         $shipping_fee = isset($this->_request['shipping_fee']) ? mysqli_real_escape_string($this->mysqli, $this->_request['shipping_fee']) : null;
         $address_id = isset($this->_request['address_id']) ? mysqli_real_escape_string($this->mysqli, $this->_request['address_id']) : null;
+        $order_type = isset($this->_request['order_type']) ? mysqli_real_escape_string($this->mysqli, $this->_request['order_type']) : null;
         $order_uid = $this->create_alpha_numeric_string(16);
         $order_id = '';
         $total_amount = round($amount, 2);
@@ -1882,19 +1885,27 @@ class API extends REST
                                                                           FROM promo_code
                                                                           WHERE id = $promo_code_id");
                     $flat_rate_percent = 0;
-                    if(mysqli_num_rows($promo_code_rlt)) {
+                    if (mysqli_num_rows($promo_code_rlt)) {
                         $promo_row = mysqli_fetch_array($promo_code_rlt);
                         $flat_rate_percent = $promo_row['flat_rate_percent'] ? $promo_row['flat_rate_percent'] : 0;
+                    }
+
+                    if ($order_type == 'online') {
+                        $current_status = 'payment_cancelled';
+                    } else {
+                        $current_status = 'order_failed';
                     }
 
                     $orders = mysqli_query($this->mysqli, "INSERT INTO orders (uid, vendor_id, user_id,
                                                                                      promo_code_id, promo_code, flat_rate,
                                                                                      flat_rate_percent,
-                                                                                     tax, shipping_fee, total_cost)
+                                                                                     tax, shipping_fee, total_cost,
+                                                                                     order_type, status)
                                                                   VALUES('$order_uid', '$vendor_id', '$user_id',
                                                                           $promo_code_id, $promo_code, '$flat_rate',
                                                                           '$flat_rate_percent',
-                                                                          '$total_tax', '$shipping_fee', '$total_amount')");
+                                                                          '$total_tax', '$shipping_fee', '$total_amount',
+                                                                          '$order_type', '$current_status')");
                     $order_id = $this->mysqli->insert_id;
                     if ($order_id) {
                         $address_rlt = mysqli_query($this->mysqli, "SELECT * FROM user_address
@@ -2008,43 +2019,91 @@ class API extends REST
                     $this->response($this->json($success), 200);
                 }
 
-                $fields = array();
-                $amount_val = round($total_amount * 100);
-                $fields["amount"] = $amount_val;
-                $fields["currency"] = "INR";
-                $url = 'https://api.razorpay.com/v1/orders';
-                $key_id = self::RAZOR_KEY_ID;
-                $key_secret = self::RAZOR_KEY_SECRET;
-                $ch = curl_init();
-                curl_setopt($ch, CURLOPT_URL, $url);
-                curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-                curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($fields));
-                curl_setopt($ch, CURLOPT_POST, 1);
-                curl_setopt($ch, CURLOPT_USERPWD, $key_id . ":" . $key_secret);
-                $headers = array();
-                $headers[] = 'Accept: application/json';
-                $headers[] = 'Content-Type: application/json';
-                curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-                $data = curl_exec($ch);
+                if ($order_type == 'online') {
+                    $fields = array();
+                    $amount_val = round($total_amount * 100);
+                    $fields["amount"] = $amount_val;
+                    $fields["currency"] = "INR";
+                    $url = 'https://api.razorpay.com/v1/orders';
+                    $key_id = self::RAZOR_KEY_ID;
+                    $key_secret = self::RAZOR_KEY_SECRET;
+                    $ch = curl_init();
+                    curl_setopt($ch, CURLOPT_URL, $url);
+                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+                    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($fields));
+                    curl_setopt($ch, CURLOPT_POST, 1);
+                    curl_setopt($ch, CURLOPT_USERPWD, $key_id . ":" . $key_secret);
+                    $headers = array();
+                    $headers[] = 'Accept: application/json';
+                    $headers[] = 'Content-Type: application/json';
+                    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+                    $data = curl_exec($ch);
 
-                if (empty($data) OR (curl_getinfo($ch, CURLINFO_HTTP_CODE != 200))) {
-                    curl_close($ch);
-                    $this->send_mail_variables('order_failed', $order_id);
+                    if (empty($data) OR (curl_getinfo($ch, CURLINFO_HTTP_CODE != 200))) {
+                        curl_close($ch);
+                        $this->send_mail_variables('order_failed', $order_id);
 
-                    $success = array('status' => "Failed", 'msg' => "Failed", 'error_type' => 0);
-                    $this->response($this->json($success), 200);
+                        $success = array('status' => "Failed", 'msg' => "Failed", 'error_type' => 0);
+                        $this->response($this->json($success), 200);
+                    } else {
+                        $data = json_decode($data, TRUE);
+                        curl_close($ch);
+                        if (isset($data['id'])) {
+                            $payment_order_id = $data['id'];
+                            $success = array('status' => "Success", 'msg' => "Success", 'payment_order_id' => $payment_order_id, 'amount' => $amount_val, 'order_id' => $order_id, 'order_uid' => $order_uid, 'key' => $key_id);
+                            $this->response($this->json($success), 200);
+                        } else {
+                            $this->send_mail_variables('order_failed', $order_id);
+
+                            $error = isset($data['error']['description']) ? $data['error']['description'] : 'Failed';
+                            $success = array('status' => "Failed", 'msg' => $error, 'error_type' => 0);
+                            $this->response($this->json($success), 200);
+                        }
+                    }
                 } else {
-                    $data = json_decode($data, TRUE);
-                    curl_close($ch);
-                    if (isset($data['id'])) {
-                        $payment_order_id = $data['id'];
-                        $success = array('status' => "Success", 'msg' => "Success", 'payment_order_id' => $payment_order_id, 'amount' => $amount_val, 'order_id' => $order_id, 'order_uid' => $order_uid, 'key' => $key_id);
+                    $orders_cash_rlt = mysqli_query($this->mysqli, "UPDATE orders
+                                                                  SET status = 'order_success'
+                                                                  WHERE id = '$order_id'");
+
+                    if ($orders_cash_rlt) {
+                        $query = "SELECT SUM(cart.count) AS count,
+                                         vendor_stock.id AS vendor_stock_id,
+                                         vendor_stock.stock
+                                  FROM cart
+                                  INNER JOIN vendor_stock
+                                  ON vendor_stock.product_size_id = cart.product_size_id
+                                  AND vendor_stock.vendor_id = cart.vendor_id
+                                  AND (vendor_stock.color_id = cart.color_id
+                                  OR cart.color_id IS NULL)
+                                  WHERE cart.user_id = '$user_id'
+                                  AND cart.vendor_id = '$vendor_id'
+                                  GROUP BY vendor_stock.id";
+
+                        $query_rlt = mysqli_query($this->mysqli, $query);
+                        while ($row = mysqli_fetch_array($query_rlt)) {
+                            $vendor_stock_id = $row['vendor_stock_id'];
+                            $stock = $row['stock'];
+                            $count = $row['count'];
+                            if ($stock != 'unlimited') {
+                                $stock_count = $stock - $count;
+                                $vendor_stock_rlt = mysqli_query($this->mysqli, "UPDATE vendor_stock
+                                                                                    SET stock = '$stock_count'
+                                                                                    WHERE id = '$vendor_stock_id'");
+                            }
+                        }
+
+                        $delete_cart = mysqli_query($this->mysqli, "DELETE FROM cart
+                                                                           WHERE user_id = '$user_id'
+                                                                           AND vendor_id = '$vendor_id'");
+
+                        $this->send_mail_variables('order_confirmed', $order_id);
+
+                        $success = array('status' => "Success", 'msg' => "Order Placed Successfully");
                         $this->response($this->json($success), 200);
                     } else {
                         $this->send_mail_variables('order_failed', $order_id);
 
-                        $error = isset($data['error']['description']) ? $data['error']['description'] : 'Failed';
-                        $success = array('status' => "Failed", 'msg' => $error, 'error_type' => 0);
+                        $success = array('status' => "Failed", 'msg' => "Failed to Order", 'error_type' => 0);
                         $this->response($this->json($success), 200);
                     }
                 }
