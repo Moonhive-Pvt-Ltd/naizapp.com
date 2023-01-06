@@ -1809,6 +1809,7 @@ class API extends REST
                               product.status AS product_status,
                               product_size.*,
                               product_image.image,
+                              product_color_image.image AS color_image,
                               tax.tax
                        FROM cart
                        INNER JOIN product_size
@@ -1817,6 +1818,9 @@ class API extends REST
                        ON product.id = product_size.product_id
                        INNER JOIN product_image
                        ON product_image.product_id = product.id
+                       LEFT JOIN product_color_image
+                       ON product_color_image.product_id = product.id
+                       AND product_color_image.color_id = cart.color_id
                        LEFT JOIN tax
                        ON tax.id = product.tax_id
                        LEFT JOIN vendor_stock
@@ -1960,7 +1964,7 @@ class API extends REST
 
                             $data = array();
                             $data['name'] = $row2['name'];
-                            $data['image'] = $row2['image'];
+                            $data['image'] = $row2['color_image'] ? $row2['color_image'] : $row2['image'];
                             if ($row2['material']) {
                                 $data['material'] = $row2['material'];
                             }
