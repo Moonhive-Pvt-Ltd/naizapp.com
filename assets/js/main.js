@@ -222,7 +222,7 @@
     	Cart Plus Minus Button
     ------------------------------ */
     var CartPlusMinus = $('.product-quality');
-    CartPlusMinus.prepend('<div class="dec qtybutton">-</div>');
+    CartPlusMinus.append('<div class="dec qtybutton">-</div>');
     CartPlusMinus.append('<div class="inc qtybutton">+</div>');
     $(".qtybutton").on("click", function () {
         var $button = $(this);
@@ -238,6 +238,7 @@
                 newVal = 1;
             }
         }
+
         $button.parent().find("input").attr('btn-sign', $button.text());
         if (oldValue == 1 && newVal == 1) {
             $button.parent().find("input").val(newVal);

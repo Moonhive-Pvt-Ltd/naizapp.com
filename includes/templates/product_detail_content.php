@@ -16,6 +16,7 @@ if ($result['status'] == 'Success') {
 
 if ($prdt_detail != null) {
     $product_image = $prdt_detail['product_image'];
+    $product_design = $prdt_detail['product_design_image'];
     $product_size_list = $prdt_detail['product_size'];
     $product_size = $prdt_detail['product_size'][0];
     ?>
@@ -44,6 +45,22 @@ if ($prdt_detail != null) {
                             </div>
                             <span>( <?php echo $prdt_detail['total_review_count']; ?> Customer Review )</span>
                         </div>
+
+                        <?php if (count($product_design) > 0) { ?>
+                            <div class="select-style mb-15 mt-15 col-md-4">
+                                <select class="select-two-active prdt-detail-design-select"
+                                        data-minimum-results-for-search="Infinity">
+                                    <?php $j = 0;
+                                    foreach ($product_design AS $prdt_design) { ?>
+                                        <option value="<?php echo $prdt_design['id']; ?>"><?php echo $prdt_design['name']; ?></option>
+                                        <?php $j++;
+                                    } ?>
+                                </select>
+                            </div>
+                        <?php } else { ?>
+                            <input type="hidden" value="" class="prdt-detail-design-select">
+                        <?php } ?>
+
                         <div class="select-style mb-15 mt-15 col-md-4">
                             <select class="select-two-active prdt-detail-size-select"
                                     data-minimum-results-for-search="Infinity">

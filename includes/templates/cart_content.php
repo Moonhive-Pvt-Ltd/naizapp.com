@@ -9,8 +9,11 @@ $post = [
 ];
 $url = BASE_URL . "get_cart_list";
 $result = getApiData($url, $post);
-if ($result['status'] == 'Success') {
-    ?>
+
+$user_id = getUserData($mysqli, $user_uid);
+$vendor_id = getUserData($mysqli, $vendor_uid);
+
+if ($result['status'] == 'Success') { ?>
     <div class="cart-area pt-100 pb-100">
         <div class="container">
             <div class="row">
@@ -22,8 +25,8 @@ if ($result['status'] == 'Success') {
                                     <thead>
                                     <tr>
                                         <th class="width-thumbnail"></th>
-                                        <th class="width-name">Product</th>
-                                        <th></th>
+                                        <th class="width-quantity">Product</th>
+                                        <th class="width-subtotal"></th>
                                         <th class="width-price"> Price</th>
                                         <th class="width-quantity">Quantity</th>
                                         <th class="width-subtotal">Subtotal</th>
@@ -34,28 +37,12 @@ if ($result['status'] == 'Success') {
                                     <?php
                                     if (count($result['cart_detail']['cart']) > 0) {
                                         foreach ($result['cart_detail']['cart'] as $row) {
-                                            $i = 0;
-                                            if (count($row['warranty']) > 0) {
-                                                foreach ($row['warranty'] as $wrnty) {
-                                                    $row['cart_id'] = $wrnty['cart_id'];
-                                                    $row['count'] = $wrnty['count'];
-                                                    $row['price'] = $wrnty['price'];
-                                                    $row['offer_price'] = $wrnty['offer_price'];
-                                                    $row['display_price'] = $wrnty['display_price'];
-                                                    $row['total_display_price'] = $wrnty['total_display_price'];
-                                                    $row['warranty_id'] = $wrnty['warranty_id'];
-
-                                                    include 'cart_table_tr.php';
-                                                    $i++;
-                                                }
-                                            } else {
                                                 include 'cart_table_tr.php';
-                                            }
                                             if ($row['error']) { ?>
                                                 <tr>
                                                     <td colspan="7"
                                                         class="no-stock-available-tr no-stock-available-td
-                                                        no-stock-available-td-<?php echo $row['product_size_id']; ?>-<?php echo $row['color_id']; ?>">
+                                                        no-stock-available-td-<?php echo $row['cart_id']; ?>">
                                                         <h6 class="d-flex flex-row align-items-center color-red">
                                                             <?php if ($row['color_code']) { ?>
                                                                 <div class="cart-color-div margin-right-7px"

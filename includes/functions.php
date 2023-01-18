@@ -9,6 +9,12 @@ if (isset($_POST['action'])) {
         case 'updateUserPassword':
             updateUserPassword($_POST, $mysqli);
             break;
+        case 'getCartCount':
+            getCartCount($_POST['user_id'], $_POST['vendor_id'], $_POST['product_size_id'], $_POST['color_id'], $_POST['warranty_id'], $_POST['design_id'], $_POST['type'], $mysqli);
+            break;
+        case 'getCartSubTotalCount':
+            getCartSubTotalCount($_POST, $mysqli);
+            break;
     }
 }
 
@@ -126,5 +132,87 @@ function updateUserPassword($post, $mysqli)
     } else {
         echo "Password not match";
         return;
+    }
+}
+
+function getCartCount($user_id, $vendor_id, $product_size_id, $color_id, $warranty_id, $design_id, $type, $mysqli)
+{
+    $cart_color_id = isset($color_id) && mysqli_real_escape_string($mysqli, $color_id) != '' ? "'" . mysqli_real_escape_string($mysqli, $color_id) . "'" : 'null';
+    $cart_warranty_id = isset($warranty_id) && mysqli_real_escape_string($mysqli, $warranty_id) != '' ? "'" . mysqli_real_escape_string($mysqli, $warranty_id) . "'" : 'null';
+    $cart_design_id = isset($design_id) && mysqli_real_escape_string($mysqli, $design_id) != '' ? "'" . mysqli_real_escape_string($mysqli, $design_id) . "'" : 'null';
+
+    $cart_rlt_query = "SELECT * FROM cart 
+                       WHERE product_size_id = '$product_size_id'
+                       AND vendor_id = '$vendor_id'
+                       AND user_id = '$user_id'";
+
+    if ($cart_color_id == 'null') {
+        $cart_rlt_query .= " AND color_id IS NULL";
+    } else {
+        $cart_rlt_query .= " AND color_id = $cart_color_id";
+    }
+
+    if ($cart_design_id == 'null') {
+        $cart_rlt_query .= " AND product_design_id IS NULL";
+    } else {
+        $cart_rlt_query .= " AND product_design_id = $cart_design_id";
+    }
+
+    if ($cart_warranty_id == 'null') {
+        $cart_rlt_query .= " AND warranty_id IS NULL";
+    } else {
+        $cart_rlt_query .= " AND warranty_id = $cart_warranty_id";
+    }
+    $cart_rlt = mysqli_query($mysqli, $cart_rlt_query);
+
+
+    if (mysqli_num_rows($cart_rlt)) {
+        $cart_row = mysqli_fetch_array($cart_rlt);
+        $count = $cart_row['count'] ? $cart_row['count'] : 0;
+        if($type) {
+            echo $count;
+            return;
+        } else {
+            return $count;
+        }
+    } else {
+        if($type) {
+            echo 0;
+            return;
+        } else {
+            return 0;
+        }
+    }
+}
+
+
+function getCartSubTotalCount($post, $mysqli)
+{
+    $user_id = mysqli_real_escape_string($mysqli, $post['user_id']);
+    $vendor_id = mysqli_real_escape_string($mysqli, $post['vendor_id']);
+    $product_size_id = mysqli_real_escape_string($mysqli, $post['product_size_id']);
+    $cart_color_id = isset($post['color_id']) && mysqli_real_escape_string($mysqli, $post['color_id']) != '' ? "'" . mysqli_real_escape_string($mysqli, $post['color_id']) . "'" : 'null';
+
+    $cart_rlt_query = "SELECT SUM(cart.count) AS `count` FROM cart 
+                       WHERE product_size_id = '$product_size_id'
+                       AND vendor_id = '$vendor_id'
+                       AND user_id = '$user_id'";
+
+    if ($cart_color_id == 'null') {
+        $cart_rlt_query .= " AND color_id IS NULL";
+    } else {
+        $cart_rlt_query .= " AND color_id = $cart_color_id";
+    }
+
+    $cart_rlt = mysqli_query($mysqli, $cart_rlt_query);
+
+    if (mysqli_num_rows($cart_rlt)) {
+        $cart_row = mysqli_fetch_array($cart_rlt);
+        $count = $cart_row['count'] ? $cart_row['count'] : 0;
+            echo $count;
+            return;
+    } else {
+            echo 0;
+            return;
     }
 }

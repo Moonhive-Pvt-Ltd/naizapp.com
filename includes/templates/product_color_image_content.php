@@ -3,6 +3,7 @@ require_once("../functions.php");
 
 $color_id = $_GET['color_id'];
 $prdt_id = $_GET['product_uid'];
+$design_id = $_GET['design_id'];
 
 $product_color_img_data = array();
 $product_rlt = mysqli_query($mysqli, "SELECT id
@@ -25,13 +26,27 @@ if (mysqli_num_rows($product_color_img_rlt)) {
         array_push($product_color_img_data, $product_color_img_data1);
     }
 } else {
-    $product_color_img_rlt = mysqli_query($mysqli, "SELECT image
+    $product_design_img_rlt = mysqli_query($mysqli, "SELECT image
+                                                       FROM product_design_image
+                                                       LEFT JOIN product_design
+                                                       ON product_design.id = product_design_image.product_design_id
+                                                       WHERE product_design.product_id = '$product_id'
+                                                       AND product_design.id = '$design_id'
+                                                       AND product_design.status = 'active'");
+    if (mysqli_num_rows($product_design_img_rlt)) {
+        while ($row_design_img = $product_design_img_rlt->fetch_assoc()) {
+            $product_color_img_data1 = IMG_URL . 'vendor_data/product/' . $row_design_img['image'];
+            array_push($product_color_img_data, $product_color_img_data1);
+        }
+    } else {
+        $product_color_img_rlt = mysqli_query($mysqli, "SELECT image
                                                        FROM product_image
                                                        WHERE product_id = '$product_id' ");
-    if (mysqli_num_rows($product_color_img_rlt)) {
-        while ($row_color_img = $product_color_img_rlt->fetch_assoc()) {
-            $product_color_img_data1 = IMG_URL . 'vendor_data/product/' . $row_color_img['image'];
-            array_push($product_color_img_data, $product_color_img_data1);
+        if (mysqli_num_rows($product_color_img_rlt)) {
+            while ($row_color_img = $product_color_img_rlt->fetch_assoc()) {
+                $product_color_img_data1 = IMG_URL . 'vendor_data/product/' . $row_color_img['image'];
+                array_push($product_color_img_data, $product_color_img_data1);
+            }
         }
     }
 }
