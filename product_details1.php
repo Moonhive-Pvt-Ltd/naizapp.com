@@ -11,7 +11,7 @@
     if ($vendor_uid != '') {
         $title = 'Product Details';
         include_once 'includes/templates/header_content.php';
-        include_once 'includes/templates/product_detail_content.php';
+        include_once 'includes/templates/product_detail_content1.php';
         include_once 'includes/footer_bottom.php';
         include_once 'includes/sidebar.php';
     } ?>
