@@ -12,6 +12,8 @@ if (isset($_POST['size_id'])) {
     $prdt_size_id = $_POST['size_id'];
     $product_id = $_POST['product_id'];
     $vendor_id = $_POST['vendor_id'];
+    $design_id = $_POST['design_id'];
+
     $product_size_query = mysqli_query($mysqli, "SELECT product_size.*,
                                                                            (CASE WHEN product_size.offer_price > 0 
                                                                             THEN product_size.offer_price 
@@ -29,7 +31,6 @@ if (isset($_POST['size_id'])) {
     if (mysqli_num_rows($product_size_query)) {
         while ($row2 = $product_size_query->fetch_assoc()) {
             $product_size_data_rlt['product_size_stock'] = 0;
-            $product_size_data_rlt['product_cart_count'] = 0;
 
             $product_size_id = $row2['id'];
             $product_size_data_rlt['id'] = $row2['id'];
@@ -91,21 +92,14 @@ if (isset($_POST['size_id'])) {
                     $product_color_data_rlt['color_code'] = $row3['code'];
                     $product_color_data_rlt['warranty_check'] = 0;
                     $product_color_data_rlt['stock'] = $row3['stock'] ? $row3['stock'] : 0;
-                    $product_color_data_rlt['count'] = $row3['count'] ? $row3['count'] : 0;
 
                     $product_size_color_warranty_rlt = mysqli_query($mysqli, "SELECT product_size_color_warranty.*,
-                                                                                                                  warranty.warranty,
-                                                                                                                  cart.count
-                                                                                                          FROM product_size_color_warranty
-                                                                                                          INNER JOIN warranty
-                                                                                                          ON warranty.id = product_size_color_warranty.warranty_id
-                                                                                                          LEFT JOIN cart
-                                                                                                          ON cart.warranty_id = warranty.id
-                                                                                                          AND cart.color_id = '$color_id'
-                                                                                                          AND cart.user_id = '$user_id'
-                                                                                                          AND cart.vendor_id = '$vendor_id'
-                                                                                                          AND cart.product_size_id = '$product_size_id'
-                                                                                                          WHERE product_size_color_warranty.product_size_color_id = '$prdt_size_color_id'");
+                                                                                            warranty.warranty
+                                                                                     FROM product_size_color_warranty
+                                                                                     INNER JOIN warranty
+                                                                                     ON warranty.id = product_size_color_warranty.warranty_id
+                                                                                     WHERE product_size_color_warranty.product_size_color_id = '$prdt_size_color_id'");
+
                     $product_color_warranty_data = array();
                     if (mysqli_num_rows($product_size_color_warranty_rlt)) {
                         $product_color_data_rlt['warranty_check'] = 1;
@@ -114,8 +108,6 @@ if (isset($_POST['size_id'])) {
                             $product_color_warranty_data1['warranty_name'] = $row_warranty['warranty'];
                             $product_color_warranty_data1['offer_price'] = $row_warranty['offer_price'];
                             $product_color_warranty_data1['price'] = $row_warranty['price'];
-                            $warranty_count = $row_warranty['count'] ? $row_warranty['count'] : 0;
-                            $product_color_warranty_data1['warranty_count'] = $warranty_count;
                             array_push($product_color_warranty_data, $product_color_warranty_data1);
                         }
                     }
@@ -140,7 +132,6 @@ if (isset($_POST['size_id'])) {
                 if (mysqli_num_rows($product_size_stock_rlt)) {
                     $stock_row = $product_size_stock_rlt->fetch_assoc();
                     $product_size_data_rlt['product_size_stock'] = $stock_row['stock'] ? $stock_row['stock'] : 0;
-                    $product_size_data_rlt['product_cart_count'] = $stock_row['count'] ? $stock_row['count'] : 0;
                 }
             }
             $product_size_data_rlt['color_stock'] = $product_color_data;
@@ -176,6 +167,7 @@ if (mysqli_num_rows($product_size_query)) { ?>
             <?php }
         } ?>
     </div>
+
     <div class="product-details-color">
         <?php if ($product_size['color_check']) { ?>
             <div class="product-color product-color-active product-details-color">
@@ -183,13 +175,15 @@ if (mysqli_num_rows($product_size_query)) { ?>
                 <ul>
                     <?php $c = 0;
                     foreach ($product_size['color_stock'] as $row) {
-                        $col_count = $row['count'];
                         if (count($row['warranty_data']) > 0) {
-                            $col_count = $row['warranty_data'][0]['warranty_count'];
+                            $col_count = getCartCount($user_id, $vendor_id, $prdt_size_id, $row['color_id'], $row['warranty_data'][0]['warranty_id'], $design_id, false, $mysqli);
+                        } else {
+                            $col_count = getCartCount($user_id, $vendor_id, $prdt_size_id, $row['color_id'], '', $design_id, false, $mysqli);
                         }
                         ?>
-                        <li><a title="<?php $row['color_name']; ?>"
-                               class="prdt-color-select <?php echo $c == 0 ? 'active' : '';
+                        <li>
+                            <a title="<?php $row['color_name']; ?>"
+                               class="prdt-color-select <?php echo $c == 0 ? 'active' : ''; echo ' ';
                                echo ($row['color_code'] == '#FFFFFF' || $row['color_code'] == '#FFF') ? 'white-a' : ''; ?>"
                                warranty-check="<?php echo $row['warranty_check']; ?>"
                                prdt-size-color-id="<?php echo $row['prdt_size_color_id']; ?>"
@@ -197,15 +191,21 @@ if (mysqli_num_rows($product_size_query)) { ?>
                                color-count="<?php echo $col_count; ?>"
                                color-stock="<?php echo $row['stock']; ?>"
                                color-code="<?php echo $row['color_code']; ?>"
+                               design-id="<?php echo $design_id; ?>"
                                style="background-color: <?php echo $row['color_code']; ?>; border: 1px solid #AAA;">
-                                <?php echo $row['color_name']; ?></a>
+                                <?php echo $row['color_name']; ?>
+                            </a>
                         </li>
                         <?php $c++;
                     } ?>
                 </ul>
             </div>
 
-            <?php if (count($product_size['color_stock'][0]['warranty_data']) > 0) { ?>
+            <?php if (count($product_size['color_stock'][0]['warranty_data']) > 0) {
+                if ($product_size['color_check']) {
+                    $prdt_size_color_id = $product_size['color_stock'][0]['prdt_size_color_id'];
+                    $color_id = $product_size['color_stock'][0]['color_id'];
+                } ?>
                 <div class="color-warranty-select-div">
                     <?php include_once '../templates/prdt_detail_color_warranty_select.php'; ?>
                 </div>
@@ -213,27 +213,31 @@ if (mysqli_num_rows($product_size_query)) { ?>
         <?php } ?>
 
         <div class="product-details-action-wrap mt-3">
-            <?php if ($product_size['color_check'] == 0) { ?>
-                <input type="hidden" value="<?php echo $product_size['product_cart_count']; ?>" id="currentCount">
+            <?php if ($product_size['color_check'] == 0) {
+                $cart_count = getCartCount($user_id, $vendor_id, $prdt_size_id, '', '', $design_id, false, $mysqli); ?>
+                <input type="hidden" value="<?php echo $cart_count; ?>" id="currentCount">
                 <input type="hidden" value="<?php echo $product_size['product_size_stock']; ?>" id="totalStockCount">
             <?php } ?>
 
-            <?php if ($product_size['color_check'] == 0) { ?>
+            <?php
+            if ($product_size['color_check'] == 0) { ?>
                 <div class="product-quality">
                     <input class="count-val cart-plus-minus-box-prdt-detail input-text qty text" name="qtybutton"
-                           value="<?php echo ($product_size['product_size_stock'] > 0 || $product_size['product_size_stock'] == 'unlimited') ? ($product_size['product_cart_count'] > 0 ? $product_size['product_cart_count'] : 1) : 0; ?>">
+                           value="<?php echo ($product_size['product_size_stock'] > 0 || $product_size['product_size_stock'] == 'unlimited') ? ($cart_count > 0 ? $cart_count : 1) : 0; ?>">
                 </div>
             <?php } else {
                 if (count($product_size['color_stock'][0]['warranty_data']) > 0) {
+                    $cart_count = getCartCount($user_id, $vendor_id, $prdt_size_id, $product_size['color_stock'][0]['color_id'], $product_size['color_stock'][0]['warranty_data'][0]['warranty_id'], $design_id, false, $mysqli);
                     ?>
                     <div class="product-quality">
                         <input class="count-val cart-plus-minus-box-prdt-detail input-text qty text" name="qtybutton"
-                               value="<?php echo ($product_size['color_stock'][0]['stock'] > 0 || $product_size['color_stock'][0]['stock'] == 'unlimited') ? ($product_size['color_stock'][0]['warranty_data'][0]['warranty_count'] > 0 ? $product_size['color_stock'][0]['warranty_data'][0]['warranty_count'] : 1) : 0; ?>">
+                               value="<?php echo ($product_size['color_stock'][0]['stock'] > 0 || $product_size['color_stock'][0]['stock'] == 'unlimited') ? ($cart_count > 0 ? $cart_count : 1) : 0; ?>">
                     </div>
-                <?php } else { ?>
+                <?php } else {
+                    $cart_count = getCartCount($user_id, $vendor_id, $prdt_size_id, $product_size['color_stock'][0]['color_id'], '', $design_id, false, $mysqli); ?>
                     <div class="product-quality">
                         <input class="count-val cart-plus-minus-box-prdt-detail input-text qty text" name="qtybutton"
-                               value="<?php echo ($product_size['color_stock'][0]['stock'] > 0 || $product_size['color_stock'][0]['stock'] == 'unlimited') ? ($product_size['color_stock'][0]['count'] > 0 ? $product_size['color_stock'][0]['count'] : 1) : 0; ?>">
+                               value="<?php echo ($product_size['color_stock'][0]['stock'] > 0 || $product_size['color_stock'][0]['stock'] == 'unlimited') ? ($cart_count > 0 ? $cart_count : 1) : 0; ?>">
                     </div>
                 <?php }
             } ?>
@@ -255,10 +259,13 @@ if (mysqli_num_rows($product_size_query)) { ?>
             } ?>">
                 <input type="hidden" value="<?php echo $prdt_size_id; ?>" id="prdtSizeId">
                 <input type="hidden" value="<?php echo $product_size['color_check']; ?>" id="colorCheck">
+                <input type="hidden" value="<?php echo $user_id; ?>" id="userId">
+
                 <?php
+
                 if ($product_size['color_check'] == 0) {
                     if ($product_size['product_size_stock'] > 0 || $product_size['product_size_stock'] == 'unlimited') {
-                        if ($product_size['product_cart_count'] > 0) { ?>
+                        if ($cart_count > 0) { ?>
                             <a href="" type="go_to_cart" class="cart-btn">Go to Cart</a>
                         <?php } else { ?>
                             <a href="" type="add_to_cart" class="cart-btn">Add to Cart</a>
@@ -269,13 +276,14 @@ if (mysqli_num_rows($product_size_query)) { ?>
                 } else {
                     if ($product_size['color_stock'][0]['stock'] > 0 || $product_size['color_stock'][0]['stock'] == 'unlimited') {
                         if (count($product_size['color_stock'][0]['warranty_data']) > 0) {
-                            if ($product_size['color_stock'][0]['warranty_data'][0]['warranty_count'] > 0) { ?>
+
+                            if ($cart_count) { ?>
                                 <a href="" type="go_to_cart" class="cart-btn">Go to Cart</a>
                             <?php } else { ?>
                                 <a href="" type="add_to_cart" class="cart-btn">Add to Cart</a>
                             <?php }
                         } else {
-                            if ($product_size['color_stock'][0]['count'] > 0) { ?>
+                            if ($cart_count) { ?>
                                 <a href="" type="go_to_cart" class="cart-btn">Go to Cart</a>
                             <?php } else { ?>
                                 <a href="" type="add_to_cart" class="cart-btn">Add to Cart</a>
@@ -293,15 +301,15 @@ if (mysqli_num_rows($product_size_query)) { ?>
     <div class="product-details-meta col-md-12 row">
         <?php
         $remove = array(
-          "id",
-          "size",
-          "product_cart_count",
-          "product_size_stock",
-          "color_check",
-          "display_price",
-          "color_stock",
-          "offer_price",
-          "price",
+            "id",
+            "size",
+            "product_cart_count",
+            "product_size_stock",
+            "color_check",
+            "display_price",
+            "color_stock",
+            "offer_price",
+            "price",
         );
 
         foreach ($remove as $key) {

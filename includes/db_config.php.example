@@ -5,4 +5,5 @@ define("PASSWORD","qkJQx446Txyvn*V&");
 define("DATABASE","naizapp");
 
 define("BASE_URL", "https://naizapp.com/api/v1/user_web/");
+define("IMG_URL", "https://admin.naizapp.com/");
 ?>

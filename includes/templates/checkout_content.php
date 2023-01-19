@@ -49,6 +49,7 @@ if ($user_uid) {
                     <input type="text" placeholder="Coupon code" name="promo_code" class="change-promo-code"
                            id="promoCode" required>
                     <input type="hidden" value="<?php echo $subtotal; ?>" name="total_cost">
+                    <input type="hidden" name="vendor_uid" value="<?php echo $vendor_uid; ?>">
                     <input type="hidden" name="uid" value="<?php echo $user_uid; ?>">
                     <input type="submit" value="Apply Coupon" id="applyCouponBtn">
                 </form>
@@ -139,39 +140,32 @@ if ($user_uid) {
                                     <ul>
                                         <?php
                                         $length = count($result1['cart_detail']['cart']);
-                                        $j=0;
+                                        $j = 0;
                                         foreach ($result1['cart_detail']['cart'] as $row1) {
                                             $j++; ?>
-                                            <li class="<?php if($length !== $j) { echo 'checkout-order-list';}?>">
-                                                <?php echo $row1['name'];
-                                                if ($row1['is_warranty'] == 0) { ?>
-                                                    <span><?php echo '₹' . ($row1['display_price'] * $row1['count']); ?> </span>
+                                            <li class="<?php if ($length !== $j) {
+                                                echo 'checkout-order-list';
+                                            } ?>">
+                                                <?php echo $row1['name']; ?>
+                                                <span><?php echo '₹' . ($row1['display_price'] * $row1['count']); ?> </span>
+                                                <br/>
+
+                                                <div class="d-flex flex-row align-items-center">
+                                                    <span class="color-code-div"
+                                                          style="background-color: <?php echo $row1['color_code']; ?>"></span>
+                                                    <span class="margin-left-7px font-size-13px"><?php echo $row1['size'] . ' (' . $row1['count'] . ')'; ?></span>
+                                                </div>
+                                                <?php if ($row1['is_warranty'] == 1) { ?>
+                                                    <div class="d-flex flex-row align-items-center mt-2">
+                                                        <span class="margin-left-7px font-size-13px">Warranty: <?php echo $row1['warranty']; ?></span>
+                                                    </div>
+                                                <?php } ?>
+                                                <?php if ($row1['is_design'] == 1) { ?>
+                                                    <div class="d-flex flex-row align-items-center mt-2">
+                                                        <span class="margin-left-7px font-size-13px">Design: <?php echo $row1['design_name']; ?></span>
+                                                    </div>
                                                 <?php } ?>
                                                 <br/>
-                                                <?php if ($row1['is_warranty'] == 1) { ?>
-                                                    <div>
-                                                        <div class="d-flex flex-row align-items-center">
-                                                    <span class="color-code-div"
-                                                          style="background-color: <?php echo $row1['color_code']; ?>"></span>
-                                                            <span class="margin-left-7px font-size-13px"><?php echo $row1['size']; ?></span>
-                                                        </div>
-                                                        <br/>
-                                                        <?php foreach ($row1['warranty'] AS $warranty) { ?>
-                                                            <div class="d-flex flex-row justify-content-between">
-                                                                <span class="margin-left-7px font-size-13px"><?php echo $warranty['warranty'] . ' (' . $warranty['count'] . ')'; ?></span>
-                                                                <span><?php echo '₹' . ($warranty['display_price'] * $warranty['count']); ?> </span>
-                                                            </div>
-                                                        <?php } ?>
-                                                        <br/>
-                                                    </div>
-                                                <?php } else { ?>
-                                                    <div class="d-flex flex-row align-items-center">
-                                                    <span class="color-code-div"
-                                                          style="background-color: <?php echo $row1['color_code']; ?>"></span>
-                                                        <span class="margin-left-7px font-size-13px"><?php echo $row1['size'] . ' (' . $row1['count'] . ')'; ?></span>
-                                                    </div>
-                                                    <br/>
-                                                <?php } ?>
                                             </li>
                                         <?php } ?>
                                     </ul>
@@ -219,7 +213,8 @@ if ($user_uid) {
                             <input type="hidden" value="<?php echo $email; ?>" id="userEmail">
                             <input type="hidden" value="<?php echo $mobile; ?>" id="userMobile">
                             <input type="hidden" value="<?php echo $total_cost; ?>" id="totalAmount">
-                            <a href="" class="place-order-btn">Place Order</a>
+                            <a href="" class="place-order-btn">Online Payment</a>
+                            <a href="" class="on-cash-on-delivery-btn mt-4">Cash On Delivery</a>
                         </div>
                     </div>
                 </div>

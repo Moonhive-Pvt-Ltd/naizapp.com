@@ -618,15 +618,17 @@ class API extends REST
                 $user_address_data = array();
                 if (mysqli_num_rows($user_address)) {
                     while ($row = $user_address->fetch_assoc()) {
-                        $user_address_rlt['id'] = $row['id'];
-                        $user_address_rlt['full_name'] = $row['full_name'];
-                        $user_address_rlt['address'] = $row['address'];
-                        $user_address_rlt['city_district'] = $row['city_district'];
-                        $user_address_rlt['type'] = $row['type'];
-                        $user_address_rlt['phone_number'] = $row['phone_number'];
-                        $user_address_rlt['pincode'] = $row['zip'];
-                        $user_address_rlt['shipping_fee'] = $row['shipping_fee'] ? $row['shipping_fee'] : '';
-                        array_push($user_address_data, $user_address_rlt);
+                        if ($row['shipping_fee']) {
+                            $user_address_rlt['id'] = $row['id'];
+                            $user_address_rlt['full_name'] = $row['full_name'];
+                            $user_address_rlt['address'] = $row['address'];
+                            $user_address_rlt['city_district'] = $row['city_district'];
+                            $user_address_rlt['type'] = $row['type'];
+                            $user_address_rlt['phone_number'] = $row['phone_number'];
+                            $user_address_rlt['pincode'] = $row['zip'];
+                            $user_address_rlt['shipping_fee'] = $row['shipping_fee'] ? $row['shipping_fee'] : '';
+                            array_push($user_address_data, $user_address_rlt);
+                        }
                     }
                 }
 
@@ -732,24 +734,28 @@ class API extends REST
 
             if ($vendor_id) {
                 //get cart list
-
                 $cart = mysqli_query($this->mysqli, "SELECT cart.id AS cart_id,
                                                                cart.count,
                                                                cart.color_id,
                                                                cart.warranty_id,
+                                                               warranty.warranty,
                                                                color.code AS color_code,
+                                                               color.name AS color_name,
                                                                product.uid,
                                                                product.name,
                                                                product.status AS product_status,
                                                                product_image.image,
+                                                               cart.product_design_id AS product_design_id,
+                                                               product_design.status AS product_design_status,
+                                                               product_design.name AS design_name,
+                                                               product_design_image.image AS product_design_image,
                                                                product_size.*,
                                                                vendor_stock.stock,
                                                                vendor.place,
                                                                tax.tax,
-                                                               warranty.warranty,
-                                                               warranty.status AS warranty_status,
                                                                product_size_color_warranty.price AS color_price,
                                                                product_size_color_warranty.offer_price AS color_offer_price,
+                                                               product_color_image.image AS product_color_image_name,
                                                                GROUP_CONCAT(DISTINCT category.name SEPARATOR ', ') AS category
                                                         FROM cart
                                                         INNER JOIN vendor
@@ -759,24 +765,31 @@ class API extends REST
                                                         LEFT JOIN vendor_stock
                                                         ON vendor_stock.product_size_id = cart.product_size_id
                                                         AND vendor_stock.vendor_id = cart.vendor_id
-                                                        AND (vendor_stock.color_id = cart.color_id
+                                                        AND (vendor_stock.color_id = cart.color_id 
                                                         OR cart.color_id IS NULL)
                                                         LEFT JOIN color
                                                         ON color.id = cart.color_id
                                                         INNER JOIN product
                                                         ON product.id = product_size.product_id
-                                                        INNER JOIN product_image
+                                                        INNER JOIN product_image 
                                                         ON product_image.product_id = product.id
+                                                        LEFT JOIN product_color_image 
+                                                        ON product_color_image.product_id = product.id
+                                                        AND product_color_image.color_id = color.id
+                                                        LEFT JOIN product_design
+                                                        ON product_design.id = cart.product_design_id
+                                                        LEFT JOIN product_design_image
+                                                        ON product_design_image.product_design_id = product_design.id
                                                         LEFT JOIN product_size_color
-                                                        ON product_size_color.product_size_id = cart.product_size_id
+                                                        ON product_size_color.product_size_id = cart.product_size_id 
                                                         AND product_size_color.color_id = cart.color_id
+                                                        LEFT JOIN product_size_color_warranty
+                                                        ON product_size_color_warranty.product_size_color_id = product_size_color.id 
+                                                        AND product_size_color_warranty.warranty_id = cart.warranty_id
                                                         LEFT JOIN warranty
                                                         ON warranty.id = cart.warranty_id
-                                                        LEFT JOIN product_size_color_warranty
-                                                        ON product_size_color_warranty.product_size_color_id = product_size_color.id
-                                                        AND product_size_color_warranty.warranty_id = cart.warranty_id
-                                                        LEFT JOIN tax
-                                                        ON tax.id = product.tax_id
+                                                        LEFT JOIN tax 
+                                                        ON tax.id = product.tax_id 
                                                         LEFT JOIN product_category
                                                         ON product_category.product_id = product.id
                                                         LEFT JOIN category
@@ -786,62 +799,152 @@ class API extends REST
                                                         AND cart.vendor_id = '$vendor_id'
                                                         GROUP BY cart_id
                                                         ORDER BY cart.timestamp DESC");
+
                 $cart_data = array();
                 $error_count = 0;
                 $total_cost = 0;
                 $total_tax = 0;
                 if (mysqli_num_rows($cart)) {
                     while ($row = $cart->fetch_assoc()) {
+                        $cart_rlt = [];
+
+                        $prdt_size_id = $row['id'];
+                        $product_rlt = mysqli_query($this->mysqli, "SELECT product_size_color.color_id,
+                                                                                  product_size_color_warranty.warranty_id,
+                                                                                  product_design.id AS design_id
+                                                                          FROM product_size
+                                                                          LEFT JOIN product_size_color
+                                                                          ON product_size_color.product_size_id = product_size.id
+                                                                          LEFT JOIN product_size_color_warranty
+                                                                          ON product_size_color_warranty.product_size_color_id = product_size_color.id
+                                                                          LEFT JOIN product
+                                                                          ON product.id = product_size.product_id
+                                                                          LEFT JOIN product_design
+                                                                          ON product_design.product_id = product.id
+                                                                          AND product_design.status = 'active'
+                                                                          WHERE product_size.id = '$prdt_size_id'
+                                                                          LIMIT 1");
+                        $current_row = $product_rlt->fetch_assoc();
+                        $current_color_id = $current_row['color_id'];
+                        $current_warranty_id = $current_row['warranty_id'];
+                        $current_design_id = $current_row['design_id'];
+                        $cart_color_id = $row['color_id'];
+                        $cart_warranty_id = $row['warranty_id'];
+                        $cart_design_id = $row['product_design_id'];
+
                         $not_available_count = 0;
                         $cart_rlt['product_uid'] = $row['uid'];
                         $cart_rlt['name'] = $row['name'];
+                        $cart_rlt['product_design_id'] = $row['product_design_id'];
+                        $cart_rlt['design_name'] = $row['design_name'];
                         $cart_rlt['color_code'] = $row['color_code'];
-                        $cart_rlt['image'] = self::URL . 'vendor_data/product/' . $row['image'];
+                        $cart_rlt['image'] = $row['product_color_image_name'] ? (self::URL . 'vendor_data/product/' . $row['product_color_image_name']) : ($row['product_design_image'] ? (self::URL . 'vendor_data/product/' . $row['product_design_image']) : (self::URL . 'vendor_data/product/' . $row['image']));
                         $cart_rlt['stock'] = $row['stock'];
                         $cart_rlt['color_id'] = $row['color_id'];
+                        $cart_rlt['color_name'] = $row['color_name'];
+                        $cart_rlt['is_design'] = $row['product_design_id'] ? 1 : 0;
                         $cart_rlt['is_warranty'] = $row['warranty_id'] ? 1 : 0;
-                        $cart_rlt['warranty'] = [];
                         $cart_rlt['product_size_id'] = $row['id'];
                         $cart_rlt['size'] = $row['size'] . $row['size_unit'];
                         if ($row['category']) {
                             $cart_rlt['error'] = '';
+                            $cart_rlt['empty_val'] = 0;
                         } else {
                             $error_count++;
                             $not_available_count++;
                             $cart_rlt['error'] = 'Not Available';
+                            $cart_rlt['empty_val'] = 1;
                         }
+                        $cart_rlt['cart_id'] = $row['cart_id'];
+                        $cart_rlt['count'] = $row['count'];
+                        $cart_rlt['total_count'] = $row['count'];
+                        $cart_rlt['price'] = $row['price'];
+                        $cart_rlt['offer_price'] = $row['offer_price'];
+                        $display_price = $row['offer_price'] > 0 ? $row['offer_price'] : $row['price'];
+                        $cart_rlt['display_price'] = $display_price;
+                        $cart_rlt['total_display_price'] = ($row['count'] * $display_price);
+                        $cart_rlt['product_design_id'] = $row['product_design_id'];
+                        $cart_rlt['design_name'] = $row['design_name'];
+                        $cart_rlt['image'] = $row['product_color_image_name'] ? (self::URL . 'vendor_data/product/' . $row['product_color_image_name']) : ($row['product_design_image'] ? (self::URL . 'vendor_data/product/' . $row['product_design_image']) : (self::URL . 'vendor_data/product/' . $row['image']));
+                        $cart_rlt['warranty_id'] = $row['warranty_id'];
+                        $cart_rlt['warranty'] = $row['warranty'];
+
                         if ($row['warranty_id']) {
-                            $wrnty['cart_id'] = $row['cart_id'];
-                            $wrnty['warranty_id'] = $row['warranty_id'];
-                            $wrnty['warranty'] = $row['warranty'];
-                            $wrnty['count'] = $row['count'];
                             if ($row['color_price'] == null) {
-                                $wrnty['price'] = 0;
-                                $wrnty['offer_price'] = 0;
+                                $cart_rlt['price'] = 0;
+                                $cart_rlt['offer_price'] = 0;
                                 $display_price = 0;
-                                $wrnty['display_price'] = 0;
-                                $wrnty['total_display_price'] = 0;
-                                $wrnty['error'] = 'Not Available';
+                                $cart_rlt['display_price'] = 0;
+                                $cart_rlt['total_display_price'] = 0;
+                                $cart_rlt['error'] = 'Not Available';
+                                $cart_rlt['empty_val'] = 1;
+                                $not_available_count++;
                                 $error_count++;
                             } else {
-                                $wrnty['price'] = $row['color_price'];
-                                $wrnty['offer_price'] = $row['color_offer_price'];
+                                $cart_rlt['price'] = $row['color_price'];
+                                $cart_rlt['offer_price'] = $row['color_offer_price'];
                                 $display_price = $row['color_offer_price'] > 0 ? $row['color_offer_price'] : $row['color_price'];
-                                $wrnty['display_price'] = $display_price;
-                                $wrnty['total_display_price'] = ($row['count'] * $display_price);
-                                $wrnty['error'] = '';
+                                $cart_rlt['display_price'] = $display_price;
+                                $cart_rlt['total_display_price'] = ($row['count'] * $display_price);
+                                $cart_rlt['error'] = '';
+                                $cart_rlt['empty_val'] = 0;
                             }
-                            array_push($cart_rlt['warranty'], $wrnty);
-                        } else {
-                            $cart_rlt['warranty_id'] = '';
-                            $cart_rlt['count'] = $row['count'];
-//                            $cart_rlt['total_count'] = $row['count'];
-                            $cart_rlt['price'] = $row['price'];
-                            $cart_rlt['offer_price'] = $row['offer_price'];
-                            $display_price = $row['offer_price'] > 0 ? $row['offer_price'] : $row['price'];
-                            $cart_rlt['display_price'] = $display_price;
-                            $cart_rlt['total_display_price'] = ($row['count'] * $display_price);
                         }
+                        if ($row['product_design_status'] == 'removed') {
+                            $cart_rlt['price'] = 0;
+                            $cart_rlt['offer_price'] = 0;
+                            $display_price = 0;
+                            $cart_rlt['display_price'] = 0;
+                            $cart_rlt['total_display_price'] = 0;
+                            $cart_rlt['error'] = 'Not Available';
+                            $cart_rlt['empty_val'] = 1;
+                            $not_available_count++;
+                            $error_count++;
+                        }
+
+
+                        if ($current_color_id) {
+                            if (!$cart_color_id) {
+                                $error_count++;
+                                $not_available_count++;
+                                $cart_rlt['error'] = 'Not Available';
+                                $cart_rlt['empty_val'] = 1;
+                                $cart_rlt['price'] = 0;
+                                $cart_rlt['offer_price'] = 0;
+                                $display_price = 0;
+                                $cart_rlt['display_price'] = 0;
+                                $cart_rlt['total_display_price'] = 0;
+                            }
+                        }
+
+                        if ($current_warranty_id) {
+                            if (!$cart_warranty_id) {
+                                $error_count++;
+                                $not_available_count++;
+                                $cart_rlt['error'] = 'Not Available';
+                                $cart_rlt['empty_val'] = 1;
+                                $cart_rlt['price'] = 0;
+                                $cart_rlt['offer_price'] = 0;
+                                $display_price = 0;
+                                $cart_rlt['display_price'] = 0;
+                                $cart_rlt['total_display_price'] = 0;
+                            }
+                        }
+
+                        if ($current_design_id) {
+                            if (!$cart_design_id) {
+                                $error_count++;
+                                $not_available_count++;
+                                $cart_rlt['error'] = 'Not Available';
+                                $cart_rlt['empty_val'] = 1;
+                                $cart_rlt['price'] = 0;
+                                $cart_rlt['offer_price'] = 0;
+                                $display_price = 0;
+                                $cart_rlt['display_price'] = 0;
+                                $cart_rlt['total_display_price'] = 0;
+                            }
+                        }
+
                         $cart_rlt['product_status'] = $row['product_status'];
                         $cart_rlt['product_size_status'] = $row['status'];
                         $cart_rlt['vendor'] = $row['place'];
@@ -849,75 +952,77 @@ class API extends REST
                         if ($row['tax']) {
                             $total_tax = $total_tax + (($row['count'] * $display_price) * ($row['tax'] / 100));
                         }
+
                         $stock = $row['stock'];
                         $count = $row['count'];
-
-                        $color_id = $row['color_id'];
                         $product_size_id = $row['id'];
+                        $color_id = $row['color_id'];
+                        $color_name = $row['color_name'];
+                        $size = $row['size'] . $row['size_unit'];
 
                         if ($not_available_count == 0) {
                             if ($row['product_status'] == 'active') {
                                 if ($row['status'] == 'active') {
                                     if ($stock != 'unlimited') {
-                                        if ($row['warranty_id']) {
+                                        if ($row['warranty_id'] || $row['product_design_id']) {
                                             $warranty_query = mysqli_query($this->mysqli, "SELECT SUM(cart.count) AS total_cart_count
                                                                                               FROM cart
                                                                                               WHERE cart.user_id = '$user_id'
                                                                                               AND cart.vendor_id = '$vendor_id'
                                                                                               AND cart.product_size_id = '$product_size_id'
-                                                                                              AND cart.color_id = '$color_id'
-                                                                                              AND cart.warranty_id IS NOT NULL");
+                                                                                              AND (cart.color_id = '$color_id'
+                                                                                              OR cart.color_id IS NULL)
+                                                                                              AND ((cart.warranty_id IS NOT NULL
+                                                                                              AND cart.product_design_id IS NOT NULL)
+                                                                                              OR cart.warranty_id IS NOT NULL
+                                                                                              OR cart.product_design_id IS NOT NULL)");
                                             if (mysqli_num_rows($warranty_query)) {
                                                 $row_warranty = mysqli_fetch_array($warranty_query);
                                                 $count = $row_warranty['total_cart_count'];
-//                                            $cart_rlt['total_count'] = $count;
                                             }
                                         }
 
                                         if ($stock == 0) {
                                             $error_count++;
                                             $cart_rlt['error'] = 'Out of Stock';
+                                            $cart_rlt['empty_val'] = 1;
                                         } else if ($count > $stock) {
                                             $error_count++;
                                             if ($stock) {
-                                                if ($row['warranty_id']) {
-                                                    $cart_rlt['error'] = 'Total ' . $stock . ' is Available';
+                                                if ($row['warranty_id'] || $row['product_design_id']) {
+                                                    if ($color_id) {
+                                                        $cart_rlt['error'] = 'Total ' . $stock . ' is Available for ' . $size . ' ' . $color_name;
+                                                    } else {
+                                                        $cart_rlt['error'] = 'Total ' . $stock . ' is Available for ' . $size;
+                                                    }
                                                 } else {
                                                     $cart_rlt['error'] = 'Only ' . $stock . ' is Available';
                                                 }
                                             } else {
                                                 $cart_rlt['error'] = 'Not Available';
+                                                $cart_rlt['empty_val'] = 1;
                                             }
                                         } else {
                                             $cart_rlt['error'] = '';
                                         }
+
                                     } else {
                                         $cart_rlt['error'] = '';
                                     }
-
                                 } else {
                                     $error_count++;
                                     $cart_rlt['error'] = 'Not Available';
+                                    $cart_rlt['empty_val'] = 1;
                                 }
                             } else {
                                 $error_count++;
                                 $cart_rlt['error'] = 'Not Available';
+                                $cart_rlt['empty_val'] = 1;
                             }
                         }
 
-                        $is_exist = array_filter($cart_data, function ($var) use ($color_id, $product_size_id) {
-                            return ($var['color_id'] == $color_id && $var['product_size_id'] == $product_size_id);
-                        });
+                        array_push($cart_data, $cart_rlt);
 
-                        if (count($is_exist) > 0) {
-                            foreach ($is_exist as $key => $new_warranty) {
-                                if ($row['warranty_id']) {
-                                    array_push($cart_data[$key]['warranty'], $cart_rlt['warranty'][0]);
-                                }
-                            }
-                        } else {
-                            array_push($cart_data, $cart_rlt);
-                        }
                     }
 
                     if ($type == 'checkout') {
@@ -966,6 +1071,7 @@ class API extends REST
         $color_id = isset($this->_request['color_id']) && mysqli_real_escape_string($this->mysqli, $this->_request['color_id']) != '' ? "'" . mysqli_real_escape_string($this->mysqli, $this->_request['color_id']) . "'" : 'null';
         $warranty_id = isset($this->_request['warranty_id']) && mysqli_real_escape_string($this->mysqli, $this->_request['warranty_id']) != '' ? "'" . mysqli_real_escape_string($this->mysqli, $this->_request['warranty_id']) . "'" : 'null';
         $page = isset($this->_request['page']) ? mysqli_real_escape_string($this->mysqli, $this->_request['page']) : null;
+        $design_id = isset($this->_request['design_id']) && mysqli_real_escape_string($this->mysqli, $this->_request['design_id']) != '' ? "'" . mysqli_real_escape_string($this->mysqli, $this->_request['design_id']) . "'" : 'null';
 
         if ($warranty_id == 0) {
             $success = array('status' => "Failed", 'msg' => "Warranty not found");
@@ -978,36 +1084,30 @@ class API extends REST
             if ($vendor_id) {
                 $product_id = $this->db_user->isValidProductId($product_uid);
                 if ($product_id) {
-                    if ($color_id == 'null' && $warranty_id == 'null') {
-                        $cart_rlt = mysqli_query($this->mysqli, "SELECT id FROM cart 
-                                                                    WHERE product_size_id = '$product_size_id'
-                                                                    AND color_id IS NULL
-                                                                    AND warranty_id IS NULL
-                                                                    AND vendor_id = '$vendor_id'
-                                                                    AND user_id = '$user_id'");
-                    } else if ($color_id == 'null' && $warranty_id != 'null') {
-                        $cart_rlt = mysqli_query($this->mysqli, "SELECT id FROM cart 
-                                                                    WHERE product_size_id = '$product_size_id'
-                                                                    AND color_id IS NULL
-                                                                    AND warranty_id = $warranty_id
-                                                                    AND vendor_id = '$vendor_id'
-                                                                    AND user_id = '$user_id'");
-                    } else if ($color_id != 'null' && $warranty_id == 'null') {
-                        $cart_rlt = mysqli_query($this->mysqli, "SELECT id FROM cart 
-                                                                    WHERE product_size_id = '$product_size_id'
-                                                                    AND color_id = $color_id
-                                                                    AND warranty_id IS NULL
-                                                                    AND vendor_id = '$vendor_id'
-                                                                    AND user_id = '$user_id'");
+
+                    $cart_rlt_query = "SELECT * FROM cart 
+                                       WHERE product_size_id = '$product_size_id'
+                                       AND vendor_id = '$vendor_id'
+                                       AND user_id = '$user_id'";
+
+                    if ($color_id == 'null') {
+                        $cart_rlt_query .= " AND color_id IS NULL";
                     } else {
-                        $cart_rlt = mysqli_query($this->mysqli, "SELECT id FROM cart 
-                                                                    WHERE product_size_id = '$product_size_id'
-                                                                    AND color_id = $color_id
-                                                                    AND warranty_id = $warranty_id
-                                                                    AND vendor_id = '$vendor_id'
-                                                                    AND user_id = '$user_id'");
+                        $cart_rlt_query .= " AND color_id = $color_id";
                     }
 
+                    if ($design_id == 'null') {
+                        $cart_rlt_query .= " AND product_design_id IS NULL";
+                    } else {
+                        $cart_rlt_query .= " AND product_design_id = $design_id";
+                    }
+
+                    if ($warranty_id == 'null') {
+                        $cart_rlt_query .= " AND warranty_id IS NULL";
+                    } else {
+                        $cart_rlt_query .= " AND warranty_id = $warranty_id";
+                    }
+                    $cart_rlt = mysqli_query($this->mysqli, $cart_rlt_query);
 
                     if (mysqli_num_rows($cart_rlt)) {
                         $row = mysqli_fetch_array($cart_rlt);
@@ -1029,12 +1129,15 @@ class API extends REST
                             }
                         } else {
                             $product_rlt = mysqli_query($this->mysqli, "UPDATE cart
-                                                                          SET `count` = '$count'
+                                                                          SET `count` = '$count',
+                                                                               color_id = $color_id,
+                                                                               warranty_id = $warranty_id,
+                                                                               product_design_id = $design_id
                                                                           WHERE id = '$cart_id'");
                         }
                     } else {
-                        $product_rlt = mysqli_query($this->mysqli, "INSERT INTO cart (user_id, vendor_id, product_size_id, color_id, warranty_id,  `count`)
-                                                                       VALUES('$user_id', '$vendor_id', '$product_size_id', $color_id, $warranty_id, '$count')");
+                        $product_rlt = mysqli_query($this->mysqli, "INSERT INTO cart (user_id, vendor_id, product_size_id, color_id, warranty_id, product_design_id, `count`)
+                                                                       VALUES('$user_id', '$vendor_id', '$product_size_id', $color_id, $warranty_id, $design_id, '$count')");
                     }
                     if ($product_rlt) {
                         $success = array('status' => "Success", 'msg' => "Product Added to Cart");
@@ -1071,7 +1174,8 @@ class API extends REST
             $vendor_id = $this->db_user->isValidVendorId($vendor_uid);
             if ($vendor_id) {
                 $delete_cart_rlt = mysqli_query($this->mysqli, "DELETE FROM cart
-                                                                       WHERE vendor_id = '$vendor_id'");
+                                                                       WHERE vendor_id = '$vendor_id'
+                                                                       AND user_id = '$user_id'");
                 if ($delete_cart_rlt) {
                     $success = array('status' => "Success", 'msg' => "Cart Cleared Successfully");
                     $this->response($this->json($success), 200);
@@ -1096,40 +1200,115 @@ class API extends REST
         }
 
         $uid = isset($this->_request['uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['uid']) : null;
+        $vendor_uid = isset($this->_request['vendor_uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['vendor_uid']) : null;
         $promo_code = isset($this->_request['promo_code']) ? mysqli_real_escape_string($this->mysqli, $this->_request['promo_code']) : null;
         $total_cost = isset($this->_request['total_cost']) ? mysqli_real_escape_string($this->mysqli, $this->_request['total_cost']) : null;
 
         $user_id = $this->db_user->isValidUserId($uid);
         if ($user_id) {
-            $current_date = date('Y-m-d');
-            $promo_code_check = mysqli_query($this->mysqli, "SELECT id, flat_rate 
-                                                                    FROM promo_code 
-                                                                    WHERE code = BINARY '$promo_code' 
-                                                                    AND (expiry_date >= '$current_date'
-                                                                    OR expiry_date IS NULL)
-                                                                    AND status = 'active'");
-            if (mysqli_num_rows($promo_code_check)) {
-                $row = mysqli_fetch_array($promo_code_check);
-                $promo_code_id = $row['id'];
-                $flat_rate = $row['flat_rate'];
-                if ($total_cost > $flat_rate) {
-                    $user_promo_code_exist_check = mysqli_query($this->mysqli, "SELECT id FROM orders 
+            $vendor_id = $this->db_user->isValidVendorId($vendor_uid);
+            if ($vendor_id) {
+                $current_date = date('Y-m-d');
+                $promo_code_check = mysqli_query($this->mysqli, "SELECT SUM(CASE WHEN (table1.warranty_price > 0
+                                                                               AND table1.warranty_price IS NOT NULL) 
+                                                                               THEN (table1.warranty_price  * table1.count)
+                                                                               ELSE (table1.price  * table1.count) END) AS display_price_val,
+                                                                               table1.id, 
+                                                                               table1.flat_rate, 
+                                                                               table1.flat_rate_percent, 
+                                                                               table1.category 
+                                                                               FROM (SELECT promo_code.id, 
+                                                                                            promo_code.flat_rate, 
+                                                                                            promo_code.flat_rate_percent, 
+                                                                                            GROUP_CONCAT(DISTINCT category.name SEPARATOR ', ') AS category,
+                                                                                            product_size.offer_price  AS offer_price_val, 
+                                                                                            product_size.price  AS price_val,
+                                                                                            product_size_color_warranty.offer_price AS warranty_offer_price_val, 
+                                                                                            product_size_color_warranty.price AS warranty_price_val,
+                                                                                            (CASE WHEN (product_size_color_warranty.offer_price > 0
+                                                                                            AND product_size_color_warranty.offer_price IS NOT NULL) 
+                                                                                            THEN product_size_color_warranty.offer_price
+                                                                                            ELSE product_size_color_warranty.price END) AS warranty_price,
+                                                                                            (CASE WHEN product_size.offer_price > 0 
+                                                                                            THEN product_size.offer_price
+                                                                                            ELSE product_size.price END) AS price,
+                                                                                            cart.count,
+                                                                                            cart.color_id,
+                                                                                            product_size.id AS prdt_size_id
+                                                                        FROM cart
+                                                                        LEFT JOIN product_size
+                                                                        ON product_size.id = cart.product_size_id
+                                                                        LEFT JOIN product_size_color
+                                                                        ON product_size_color.product_size_id = cart.product_size_id
+                                                                        LEFT JOIN product_size_color_warranty
+                                                                        ON product_size_color_warranty.product_size_color_id = product_size_color.id
+                                                                        AND product_size_color.color_id = cart.color_id
+                                                                        AND product_size_color_warranty.warranty_id = cart.warranty_id
+                                                                        LEFT JOIN product_category
+                                                                        ON product_category.product_id = product_size.product_id
+                                                                        LEFT JOIN category
+                                                                        ON category.id = product_category.category_id
+                                                                        AND category.status = 'active' 
+                                                                        LEFT JOIN category_promo_code
+                                                                        ON category_promo_code.category_id = category.id
+                                                                        LEFT JOIN promo_code
+                                                                        ON promo_code.id = category_promo_code.promo_code_id
+                                                                        AND promo_code.code = BINARY '$promo_code'
+                                                                        AND (promo_code.expiry_date >= '$current_date'
+                                                                        OR promo_code.expiry_date IS NULL)
+                                                                        AND promo_code.status = 'active'
+                                                                        WHERE cart.user_id = '$user_id'
+                                                                        AND cart.vendor_id = '$vendor_id'
+                                                                        AND (promo_code.flat_rate IS NOT NULL 
+                                                                        OR promo_code.flat_rate_percent IS NOT NULL)
+                                                                        GROUP BY cart.id) AS table1");
+                if (mysqli_num_rows($promo_code_check)) {
+                    $rate = 0;
+                    $row = mysqli_fetch_array($promo_code_check);
+                    if ($row['id']) {
+                        $promo_code_id = $row['id'];
+                        $display_price = $row['display_price_val'];
+                        $flat_rate = $row['flat_rate'];
+                        $flat_rate_percent = $row['flat_rate_percent'];
+                        $category = $row['category'];
+                        if ($flat_rate) {
+                            if ($display_price >= $flat_rate) {
+                                $rate = $flat_rate;
+                            } else {
+                                $success = array('status' => "Failed", 'msg' => "Price of the products under $category must be greater than Rs." . $flat_rate);
+                                $this->response($this->json($success), 200);
+                            }
+                        } else if ($flat_rate_percent) {
+                            $rate = $display_price * ($flat_rate_percent / 100);
+                            if ($display_price >= $rate) {
+                            } else {
+                                $success = array('status' => "Failed", 'msg' => "Price of the products under $category must be greater than Rs." . $rate);
+                                $this->response($this->json($success), 200);
+                            }
+                        }
+
+                        $user_promo_code_exist_check = mysqli_query($this->mysqli, "SELECT id FROM orders 
                                                                                        WHERE user_id = '$user_id' 
                                                                                        AND promo_code_id = '$promo_code_id'
-                                                                                       AND status = 'payment_success'");
-                    if (!mysqli_num_rows($user_promo_code_exist_check)) {
-                        $success = array('status' => "Success", 'msg' => "Promo Code Applied Successfully", 'flat_rate' => $flat_rate, 'promo_code_id' => $promo_code_id);
-                        $this->response($this->json($success), 200);
+                                                                                       AND (status = 'payment_success'
+                                                                                       OR status = 'order_success')");
+                        if (!mysqli_num_rows($user_promo_code_exist_check)) {
+                            $success = array('status' => "Success", 'msg' => "Promo Code Applied Successfully", 'flat_rate' => $rate, 'promo_code_id' => $promo_code_id);
+                            $this->response($this->json($success), 200);
+                        } else {
+                            $success = array('status' => "Failed", 'msg' => "Already Applied", 'flat_rate' => 0, 'promo_code_id' => '');
+                            $this->response($this->json($success), 200);
+                        }
                     } else {
-                        $success = array('status' => "Failed", 'msg' => "Already Applied", 'flat_rate' => 0, 'promo_code_id' => '');
+                        $success = array('status' => "Failed", 'msg' => "Invalid Promo Code");
                         $this->response($this->json($success), 200);
                     }
                 } else {
-                    $success = array('status' => "Failed", 'msg' => "Sub Total must be greater than Rs." . $flat_rate);
+                    $success = array('status' => "Failed", 'msg' => "Invalid Promo Code");
                     $this->response($this->json($success), 200);
                 }
             } else {
-                $success = array('status' => "Failed", 'msg' => "Invalid Promo Code");
+                $success = array('status' => "Failed", 'msg' => "Vendor not found");
                 $this->response($this->json($success), 200);
             }
         } else {
@@ -1175,6 +1354,7 @@ class API extends REST
                     $order_rlt['total_cost'] = $row['total_cost'];
                     $order_rlt['status'] = ucwords(str_replace('_', ' ', $row['status']));
                     $order_rlt['place'] = $row['place'];
+                    $order_rlt['order_type'] = $row['order_type'] == 'cod' ? "Cash on Delivery" : "Online Payment";
                     $order_rlt['timestamp'] = $row['timestamp'];
                     array_push($orders_datas, $order_rlt);
                 }
@@ -1218,15 +1398,17 @@ class API extends REST
                                                           LEFT JOIN color
                                                           ON color.id = order_item.color_id  
                                                           LEFT JOIN warranty
-                                                          ON warranty.id = order_item.warranty_id  
+                                                          ON warranty.id = order_item.warranty_id 
+                                                          LEFT JOIN product_design
+                                                          ON product_design.id = order_item.product_design_id  
                                                           WHERE orders.user_id = '$user_id'
                                                           AND orders.id = '$order_id'
                                                           GROUP BY order_item.id
                                                           ORDER BY order_item.timestamp DESC");
                 $orders_datas = array();
                 if (mysqli_num_rows($orders)) {
-                    $order_rlt = array();
                     while ($row = $orders->fetch_assoc()) {
+                        $order_rlt = array();
                         if ($row['order_datas']) {
                             $order_data = array();
                             $order_detail = explode(', ', $row['order_datas']);
@@ -1243,11 +1425,14 @@ class API extends REST
                         if (isset($order_data['warranty'])) {
                             $order_rlt['warranty'] = $order_data['warranty'];
                         }
+                        if (isset($order_data['design'])) {
+                            $order_rlt['design'] = $order_data['design'];
+                        }
                         $order_rlt['image'] = self::URL . 'vendor_data/product/' . $order_data['image'];
                         $display_price = $row['offer_price'] > 0 ? $row['offer_price'] : $row['price'];
                         $order_rlt['stock_count'] = $row['count'];
                         $order_rlt['display_price'] = $display_price * $row['count'];
-                        if ($row['order_status'] == 'payment_success') {
+                        if ($row['order_status'] == 'payment_success' || $row['order_status'] == 'order_success') {
                             $order_rlt['status'] = $row['status'];
                         } else {
                             $order_rlt['status'] = '';
@@ -1333,6 +1518,21 @@ class API extends REST
                     }
                 }
                 $product_detail['product_image'] = $product_image_data;
+
+                $product_design_img_data = array();
+                $product_design_img_rlt = mysqli_query($this->mysqli, "SELECT *
+                                                                             FROM product_design
+                                                                             WHERE product_id = '$product_id'
+                                                                             AND status = 'active'");
+                if (mysqli_num_rows($product_design_img_rlt)) {
+                    while ($row_design_img = $product_design_img_rlt->fetch_assoc()) {
+                        $product_design_img_data1 = [];
+                        $product_design_img_data1['id'] = $row_design_img['id'];
+                        $product_design_img_data1['name'] = $row_design_img['name'];
+                        array_push($product_design_img_data, $product_design_img_data1);
+                    }
+                }
+                $product_detail['product_design_image'] = $product_design_img_data;
 
                 $product_size = mysqli_query($this->mysqli, "SELECT product_size.id,
                                                                             product_size.size,
@@ -1702,6 +1902,7 @@ class API extends REST
         $total_tax = isset($this->_request['tax']) ? mysqli_real_escape_string($this->mysqli, $this->_request['tax']) : null;
         $shipping_fee = isset($this->_request['shipping_fee']) ? mysqli_real_escape_string($this->mysqli, $this->_request['shipping_fee']) : null;
         $address_id = isset($this->_request['address_id']) ? mysqli_real_escape_string($this->mysqli, $this->_request['address_id']) : null;
+        $order_type = isset($this->_request['order_type']) ? mysqli_real_escape_string($this->mysqli, $this->_request['order_type']) : null;
         $order_uid = $this->create_alpha_numeric_string(16);
         $order_id = '';
         $total_amount = round($amount, 2);
@@ -1712,6 +1913,8 @@ class API extends REST
             if ($vendor_id) {
                 $query = "SELECT cart.count,
                               cart.warranty_id,
+                              cart.color_id AS cart_color_id,
+                              cart.product_design_id AS cart_product_design_id,
                               product_size_color_warranty.price AS color_price,
                               product_size_color_warranty.offer_price AS color_offer_price,
                               color.id AS color_id,
@@ -1728,6 +1931,11 @@ class API extends REST
                               product.status AS product_status,
                               product_size.*,
                               product_image.image,
+                              product_color_image.image AS color_image,
+                              product_design_image.image AS design_image,
+                              product_design.id AS product_design_id,
+                              product_design.name AS design_name,
+                              product_design.status AS product_design_status,
                               tax.tax
                        FROM cart
                        INNER JOIN product_size
@@ -1736,6 +1944,14 @@ class API extends REST
                        ON product.id = product_size.product_id
                        INNER JOIN product_image
                        ON product_image.product_id = product.id
+                       LEFT JOIN product_color_image
+                       ON product_color_image.product_id = product.id
+                       AND product_color_image.color_id = cart.color_id
+                       LEFT JOIN product_design
+                       ON product_design.product_id = product.id
+                       LEFT JOIN product_design_image
+                       ON product_design_image.product_design_id = product_design.id
+                       AND product_design_image.product_design_id = cart.product_design_id
                        LEFT JOIN tax
                        ON tax.id = product.tax_id
                        LEFT JOIN vendor_stock
@@ -1767,15 +1983,80 @@ class API extends REST
                         $color_id = $row['color_id'];
                         if ($row['product_status'] == 'active') {
                             if ($row['status'] == 'active') {
+
+                                $product_rlt_data = mysqli_query($this->mysqli, "SELECT product_size_color.color_id,
+                                                                                  product_size_color_warranty.warranty_id,
+                                                                                  product_design.id AS design_id
+                                                                          FROM product_size
+                                                                          LEFT JOIN product_size_color
+                                                                          ON product_size_color.product_size_id = product_size.id
+                                                                          LEFT JOIN product_size_color_warranty
+                                                                          ON product_size_color_warranty.product_size_color_id = product_size_color.id
+                                                                          LEFT JOIN product
+                                                                          ON product.id = product_size.product_id
+                                                                          LEFT JOIN product_design
+                                                                          ON product_design.product_id = product.id
+                                                                          AND product_design.status = 'active'
+                                                                          WHERE product_size.id = '$product_size_id'
+                                                                          LIMIT 1");
+                                $current_row = $product_rlt_data->fetch_assoc();
+                                $current_color_id = $current_row['color_id'];
+                                $current_warranty_id = $current_row['warranty_id'];
+                                $current_design_id = $current_row['design_id'];
+                                $cart_color_id = $row['cart_color_id'];
+                                $cart_warranty_id = $row['warranty_id'];
+                                $cart_design_id = $row['cart_product_design_id'];
+
+
+                                if ($row['warranty_id']) {
+                                    if ($row['color_price'] == null) {
+                                        $success = array('status' => "Failed", 'msg' => "Not Available", 'error_type' => 1);
+                                        $this->response($this->json($success), 200);
+                                    }
+                                }
+
+                                if ($row['cart_product_design_id']) {
+                                    if ($row['product_design_status'] == 'removed') {
+                                        $success = array('status' => "Failed", 'msg' => "Not Available", 'error_type' => 1);
+                                        $this->response($this->json($success), 200);
+                                    }
+                                }
+
+                                if ($current_color_id) {
+                                    if (!$cart_color_id) {
+                                        $success = array('status' => "Failed", 'msg' => "Not Available", 'error_type' => 1);
+                                        $this->response($this->json($success), 200);
+                                    }
+                                }
+
+                                if ($current_warranty_id) {
+                                    if (!$cart_warranty_id) {
+                                        $success = array('status' => "Failed", 'msg' => "Not Available", 'error_type' => 1);
+                                        $this->response($this->json($success), 200);
+                                    }
+                                }
+
+                                if ($current_design_id) {
+                                    if (!$cart_design_id) {
+                                        $success = array('status' => "Failed", 'msg' => "Not Available", 'error_type' => 1);
+                                        $this->response($this->json($success), 200);
+                                    }
+                                }
+
+
                                 if ($stock != 'unlimited') {
-                                    if ($row['warranty_id']) {
+                                    if ($row['warranty_id'] || $row['product_design_id']) {
                                         $warranty_query = mysqli_query($this->mysqli, "SELECT SUM(cart.count) AS total_cart_count
                                                                                               FROM cart
                                                                                               WHERE cart.user_id = '$user_id'
                                                                                               AND cart.vendor_id = '$vendor_id'
                                                                                               AND cart.product_size_id = '$product_size_id'
-                                                                                              AND cart.color_id = '$color_id'
-                                                                                              AND cart.warranty_id IS NOT NULL");
+                                                                                              AND (cart.color_id = '$color_id'
+                                                                                              OR cart.color_id IS NULL)
+                                                                                              AND ((cart.warranty_id IS NOT NULL
+                                                                                              AND cart.product_design_id IS NOT NULL)
+                                                                                              OR cart.warranty_id IS NOT NULL
+                                                                                              OR cart.product_design_id IS NOT NULL)");
                                         if (mysqli_num_rows($warranty_query)) {
                                             $row_warranty = mysqli_fetch_array($warranty_query);
                                             $count = $row_warranty['total_cart_count'];
@@ -1800,12 +2081,31 @@ class API extends REST
 
                 $query_rlt2 = mysqli_query($this->mysqli, $query);
                 if (mysqli_num_rows($query_rlt2)) {
+                    $promo_code_rlt = mysqli_query($this->mysqli, "SELECT *
+                                                                          FROM promo_code
+                                                                          WHERE id = $promo_code_id");
+                    $flat_rate_percent = 0;
+                    if (mysqli_num_rows($promo_code_rlt)) {
+                        $promo_row = mysqli_fetch_array($promo_code_rlt);
+                        $flat_rate_percent = $promo_row['flat_rate_percent'] ? $promo_row['flat_rate_percent'] : 0;
+                    }
+
+                    if ($order_type == 'online') {
+                        $current_status = 'payment_cancelled';
+                    } else {
+                        $current_status = 'order_failed';
+                    }
+
                     $orders = mysqli_query($this->mysqli, "INSERT INTO orders (uid, vendor_id, user_id,
                                                                                      promo_code_id, promo_code, flat_rate,
-                                                                                     tax, shipping_fee, total_cost)
+                                                                                     flat_rate_percent,
+                                                                                     tax, shipping_fee, total_cost,
+                                                                                     order_type, status)
                                                                   VALUES('$order_uid', '$vendor_id', '$user_id',
                                                                           $promo_code_id, $promo_code, '$flat_rate',
-                                                                          '$total_tax', '$shipping_fee', '$total_amount')");
+                                                                          '$flat_rate_percent',
+                                                                          '$total_tax', '$shipping_fee', '$total_amount',
+                                                                          '$order_type', '$current_status')");
                     $order_id = $this->mysqli->insert_id;
                     if ($order_id) {
                         $address_rlt = mysqli_query($this->mysqli, "SELECT * FROM user_address
@@ -1837,6 +2137,7 @@ class API extends REST
                             $color_id = $row2['color_id'];
                             $is_warranty_id = $row2['warranty_id'];
                             $warranty_id = $row2['warranty_id'] ? $row2['warranty_id'] : 'null';
+                            $product_design_id = $row2['product_design_id'] ? $row2['product_design_id'] : 'null';
                             if ($row2['warranty_id']) {
                                 $price = $row2['color_price'];
                                 $offer_price = $row2['color_offer_price'];
@@ -1850,17 +2151,17 @@ class API extends REST
 
                             $order_item_uid = $this->create_alpha_numeric_string(16);
                             if ($color_id) {
-                                $order_items = mysqli_query($this->mysqli, "INSERT INTO order_item (uid, order_id, product_size_id, color_id, warranty_id, price, offer_price, `count`, tax)
-                                                                               VALUES('$order_item_uid', '$order_id', '$product_size_id', $color_id, $warranty_id, '$price', '$offer_price', '$count', '$tax')");
+                                $order_items = mysqli_query($this->mysqli, "INSERT INTO order_item (uid, order_id, product_design_id, product_size_id, color_id, warranty_id, price, offer_price, `count`, tax)
+                                                                               VALUES('$order_item_uid', '$order_id', $product_design_id, '$product_size_id', $color_id, $warranty_id, '$price', '$offer_price', '$count', '$tax')");
                             } else {
-                                $order_items = mysqli_query($this->mysqli, "INSERT INTO order_item (uid, order_id, product_size_id, price, offer_price, `count`, tax)
-                                                                               VALUES('$order_item_uid', '$order_id', '$product_size_id', '$price', '$offer_price', '$count', '$tax')");
+                                $order_items = mysqli_query($this->mysqli, "INSERT INTO order_item (uid, order_id, product_design_id, product_size_id, price, offer_price, `count`, tax)
+                                                                               VALUES('$order_item_uid', '$order_id', $product_design_id, '$product_size_id', '$price', '$offer_price', '$count', '$tax')");
                             }
                             $order_item_id = $this->mysqli->insert_id;
 
                             $data = array();
                             $data['name'] = $row2['name'];
-                            $data['image'] = $row2['image'];
+                            $data['image'] = $row2['color_image'] ? $row2['color_image'] : ($row2['design_image'] ? $row2['design_image'] : $row2['image']);
                             if ($row2['material']) {
                                 $data['material'] = $row2['material'];
                             }
@@ -1872,6 +2173,9 @@ class API extends REST
                             }
                             if ($row2['batch_no']) {
                                 $data['batch_no'] = $row2['batch_no'];
+                            }
+                            if ($row2['product_design_id']) {
+                                $data['design'] = $row2['design_name'];
                             }
                             if ($row2['size']) {
                                 $data['size'] = $row2['size'] . $row2['size_unit'];
@@ -1919,43 +2223,91 @@ class API extends REST
                     $this->response($this->json($success), 200);
                 }
 
-                $fields = array();
-                $amount_val = round($total_amount * 100);
-                $fields["amount"] = $amount_val;
-                $fields["currency"] = "INR";
-                $url = 'https://api.razorpay.com/v1/orders';
-                $key_id = self::RAZOR_KEY_ID;
-                $key_secret = self::RAZOR_KEY_SECRET;
-                $ch = curl_init();
-                curl_setopt($ch, CURLOPT_URL, $url);
-                curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-                curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($fields));
-                curl_setopt($ch, CURLOPT_POST, 1);
-                curl_setopt($ch, CURLOPT_USERPWD, $key_id . ":" . $key_secret);
-                $headers = array();
-                $headers[] = 'Accept: application/json';
-                $headers[] = 'Content-Type: application/json';
-                curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-                $data = curl_exec($ch);
+                if ($order_type == 'online') {
+                    $fields = array();
+                    $amount_val = round($total_amount * 100);
+                    $fields["amount"] = $amount_val;
+                    $fields["currency"] = "INR";
+                    $url = 'https://api.razorpay.com/v1/orders';
+                    $key_id = self::RAZOR_KEY_ID;
+                    $key_secret = self::RAZOR_KEY_SECRET;
+                    $ch = curl_init();
+                    curl_setopt($ch, CURLOPT_URL, $url);
+                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+                    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($fields));
+                    curl_setopt($ch, CURLOPT_POST, 1);
+                    curl_setopt($ch, CURLOPT_USERPWD, $key_id . ":" . $key_secret);
+                    $headers = array();
+                    $headers[] = 'Accept: application/json';
+                    $headers[] = 'Content-Type: application/json';
+                    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+                    $data = curl_exec($ch);
 
-                if (empty($data) OR (curl_getinfo($ch, CURLINFO_HTTP_CODE != 200))) {
-                    curl_close($ch);
-                    $this->send_mail_variables('order_failed', $order_id);
+                    if (empty($data) OR (curl_getinfo($ch, CURLINFO_HTTP_CODE != 200))) {
+                        curl_close($ch);
+                        $this->send_mail_variables('order_failed', $order_id);
 
-                    $success = array('status' => "Failed", 'msg' => "Failed", 'error_type' => 0);
-                    $this->response($this->json($success), 200);
+                        $success = array('status' => "Failed", 'msg' => "Failed", 'error_type' => 0);
+                        $this->response($this->json($success), 200);
+                    } else {
+                        $data = json_decode($data, TRUE);
+                        curl_close($ch);
+                        if (isset($data['id'])) {
+                            $payment_order_id = $data['id'];
+                            $success = array('status' => "Success", 'msg' => "Success", 'payment_order_id' => $payment_order_id, 'amount' => $amount_val, 'order_id' => $order_id, 'order_uid' => $order_uid, 'key' => $key_id);
+                            $this->response($this->json($success), 200);
+                        } else {
+                            $this->send_mail_variables('order_failed', $order_id);
+
+                            $error = isset($data['error']['description']) ? $data['error']['description'] : 'Failed';
+                            $success = array('status' => "Failed", 'msg' => $error, 'error_type' => 0);
+                            $this->response($this->json($success), 200);
+                        }
+                    }
                 } else {
-                    $data = json_decode($data, TRUE);
-                    curl_close($ch);
-                    if (isset($data['id'])) {
-                        $payment_order_id = $data['id'];
-                        $success = array('status' => "Success", 'msg' => "Success", 'payment_order_id' => $payment_order_id, 'amount' => $amount_val, 'order_id' => $order_id, 'order_uid' => $order_uid, 'key' => $key_id);
+                    $orders_cash_rlt = mysqli_query($this->mysqli, "UPDATE orders
+                                                                  SET status = 'order_success'
+                                                                  WHERE id = '$order_id'");
+
+                    if ($orders_cash_rlt) {
+                        $query = "SELECT SUM(cart.count) AS count,
+                                         vendor_stock.id AS vendor_stock_id,
+                                         vendor_stock.stock
+                                  FROM cart
+                                  INNER JOIN vendor_stock
+                                  ON vendor_stock.product_size_id = cart.product_size_id
+                                  AND vendor_stock.vendor_id = cart.vendor_id
+                                  AND (vendor_stock.color_id = cart.color_id
+                                  OR cart.color_id IS NULL)
+                                  WHERE cart.user_id = '$user_id'
+                                  AND cart.vendor_id = '$vendor_id'
+                                  GROUP BY vendor_stock.id";
+
+                        $query_rlt = mysqli_query($this->mysqli, $query);
+                        while ($row = mysqli_fetch_array($query_rlt)) {
+                            $vendor_stock_id = $row['vendor_stock_id'];
+                            $stock = $row['stock'];
+                            $count = $row['count'];
+                            if ($stock != 'unlimited') {
+                                $stock_count = $stock - $count;
+                                $vendor_stock_rlt = mysqli_query($this->mysqli, "UPDATE vendor_stock
+                                                                                    SET stock = '$stock_count'
+                                                                                    WHERE id = '$vendor_stock_id'");
+                            }
+                        }
+
+                        $delete_cart = mysqli_query($this->mysqli, "DELETE FROM cart
+                                                                           WHERE user_id = '$user_id'
+                                                                           AND vendor_id = '$vendor_id'");
+
+                        $this->send_mail_variables('order_confirmed', $order_id);
+
+                        $success = array('status' => "Success", 'msg' => "Order Placed Successfully");
                         $this->response($this->json($success), 200);
                     } else {
                         $this->send_mail_variables('order_failed', $order_id);
 
-                        $error = isset($data['error']['description']) ? $data['error']['description'] : 'Failed';
-                        $success = array('status' => "Failed", 'msg' => $error, 'error_type' => 0);
+                        $success = array('status' => "Failed", 'msg' => "Failed to Order", 'error_type' => 0);
                         $this->response($this->json($success), 200);
                     }
                 }

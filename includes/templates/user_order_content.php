@@ -23,6 +23,7 @@ if ($result['status'] == 'Success') {
             <th>Order</th>
             <th>Shop</th>
             <th>Status</th>
+            <th>Type</th>
             <th>Date</th>
             <th>Total</th>
             <th>Action</th>
@@ -35,6 +36,9 @@ if ($result['status'] == 'Success') {
                 <td><?php echo $i; ?></td>
                 <td><?php echo $row['place']; ?></td>
                 <td><?php echo $row['status']; ?></td>
+                <td>
+                    <?php echo $row['order_type']; ?>
+                </td>
                 <td>
                     <?php
                     $time = new DateTime($row['timestamp'], new DateTimeZone('UTC'));
