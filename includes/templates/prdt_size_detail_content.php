@@ -183,7 +183,7 @@ if (mysqli_num_rows($product_size_query)) { ?>
                         ?>
                         <li>
                             <a title="<?php $row['color_name']; ?>"
-                               class="prdt-color-select <?php echo $c == 0 ? 'active' : '';
+                               class="prdt-color-select <?php echo $c == 0 ? 'active' : ''; echo ' ';
                                echo ($row['color_code'] == '#FFFFFF' || $row['color_code'] == '#FFF') ? 'white-a' : ''; ?>"
                                warranty-check="<?php echo $row['warranty_check']; ?>"
                                prdt-size-color-id="<?php echo $row['prdt_size_color_id']; ?>"

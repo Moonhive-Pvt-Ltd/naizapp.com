@@ -244,10 +244,10 @@ $(document).ready(function () {
                                 }
 
                                 if (btn_sign == '+') {
-                                    $(this).val(parseInt(val) - 1);
-                                    $(this).attr('current-val', parseInt(val) - 1);
+                                    $(btn).val(parseInt(val) - 1);
+                                    $(btn).attr('current-val', parseInt(val) - 1);
                                 } else {
-                                    $(this).val(current_val);
+                                    $(btn).val(current_val);
                                 }
                                 return;
                             }
@@ -264,10 +264,10 @@ $(document).ready(function () {
                         }
 
                         if (btn_sign == '+') {
-                            $(this).val(parseInt(val) - 1);
-                            $(this).attr('current-val', parseInt(val) - 1);
+                            $(btn).val(parseInt(val) - 1);
+                            $(btn).attr('current-val', parseInt(val) - 1);
                         } else {
-                            $(this).val(current_val);
+                            $(btn).val(current_val);
                         }
                         return;
                     }
@@ -345,104 +345,116 @@ $(document).ready(function () {
 
 
             let color_check = $('#colorCheck').val();
-
+            let current_count = 0;
             let total_stock_count = 0;
-            if (color_check == 0) {
-                total_stock_count = $('#totalStockCount').val();
-            } else {
-                total_stock_count = $('.prdt-color-select.active').attr('color-stock');
-            }
-
             let product_uid = $('#productUid').val();
             let vendor_uid = $('#vendorUId').val();
             let product_size_id = $('#prdtSizeId').val();
-            let design_id = $('.prdt-detail-design-select').val();
+            let vendor_id = $('#vendorId').val();
+            let user_id = $('#userId').val();
+            let design_id = $('.prdt-detail-design-select').val() ? $('.prdt-detail-design-select').val() : '';
             let color_id = '';
             let warranty_id = '';
             let warranty_check = 0;
-            if (color_check > 0) {
+            let remaining_warranty_count = 0;
+
+            if (color_check == 0) {
+                current_count = $('#currentCount').val();
+                total_stock_count = $('#totalStockCount').val();
+            } else {
+                total_stock_count = $('.prdt-color-select.active').attr('color-stock');
                 color_id = $('.prdt-color-select.active').attr('color-id');
                 warranty_check = $('.prdt-color-select.active').attr('warranty-check');
                 if (warranty_check == 1) {
+                    current_count = $('.prdt-detail-color-warranty-select').find(':selected').attr('count-id');
                     warranty_id = $('.prdt-detail-color-warranty-select').find(':selected').attr('warranty-id');
-                }
-            }
-
-            let remaining_warranty_count = 0;
-            if (warranty_check == 1) {
-                let w_html = $('.prdt-detail-color-warranty-select option');
-
-                for (let i = 0; i < w_html.length; i++) {
-                    if (warranty_id == $(w_html[i]).attr('warranty-id')) {
-                    } else {
-                        remaining_warranty_count = parseInt(remaining_warranty_count) + parseInt($(w_html[i]).attr('count-id'));
-                    }
-                }
-            }
-
-            if ((parseInt(val) + parseInt(remaining_warranty_count)) > parseInt(total_stock_count)) {
-                if (total_stock_count == 0) {
-                    Swal.fire({text: 'No stock is available', confirmButtonColor: "#e97730"});
-                    return;
                 } else {
-                    if (warranty_check == 1) {
-                        let current_value = $('.prdt-detail-color-warranty-select').find(':selected').attr('count-id');
-                        if (val >= 1 && val < current_value) {
-                            // if (val > 1 && val < current_value) {
-
-                        } else {
-                            Swal.fire({
-                                text: 'Total ' + total_stock_count + ' is available',
-                                confirmButtonColor: "#e97730"
-                            });
-                            return;
-                        }
-                    } else {
-                        Swal.fire({
-                            text: 'Only ' + total_stock_count + ' is available',
-                            confirmButtonColor: "#e97730"
-                        });
-                        return;
-                    }
+                    current_count = $('.prdt-color-select.active').attr('color-count');
                 }
             }
 
-            let form_data = new FormData();
-            form_data.append('uid', uid);
-            form_data.append('page', 'product_detail');
-            form_data.append('count', val);
-            form_data.append('product_uid', product_uid);
-            form_data.append('vendor_uid', vendor_uid);
-            form_data.append('product_size_id', product_size_id);
-            form_data.append('color_id', color_id);
-            form_data.append('warranty_id', warranty_id);
-            form_data.append('design_id', design_id);
-            let url = BASE_URL + "add_to_cart";
-            $.ajax({
-                url: url,
-                type: "POST",
-                data: form_data,
-                contentType: false,
-                cache: false,
-                processData: false,
-                success: function (data) {
-                    if (data.status == 'Success') {
-                        btn.find('.cart-btn').html('Go to Cart');
-                        btn.find('.cart-btn').attr("type", "go_to_cart");
-                        if (color_check == 0) {
-                            $('#currentCount').val(val);
+            var ajaxurl = 'includes/functions.php',
+                data = {
+                    'action': 'getCartSubTotalCount',
+                    'user_id': user_id,
+                    'vendor_id': vendor_id,
+                    'product_size_id': product_size_id,
+                    'color_id': color_id,
+                };
+            $.post(ajaxurl, data, function (response) {
+                if (total_stock_count != 'unlimited') {
+                    if (response > 0) {
+                        remaining_warranty_count = parseInt(response) - parseInt(current_count);
+                    }
+
+                    if ((parseInt(val) + parseInt(remaining_warranty_count)) > parseInt(total_stock_count)) {
+                        if (total_stock_count == 0) {
+                            Swal.fire({text: 'No stock is available', confirmButtonColor: "#e97730"});
+                            return;
                         } else {
-                            $('.prdt-color-select.active').attr('color-count', val);
                             if (warranty_check == 1) {
-                                $('.prdt-detail-color-warranty-select').find(':selected').attr('count-id', val);
+                                let current_value = $('.prdt-detail-color-warranty-select').find(':selected').attr('count-id');
+                                if (val >= 1 && val < current_value) {
+                                    // if (val > 1 && val < current_value) {
+
+                                } else {
+                                    Swal.fire({
+                                        text: 'Total ' + total_stock_count + ' is available',
+                                        confirmButtonColor: "#e97730"
+                                    });
+                                    return;
+                                }
+                            } else {
+                                Swal.fire({
+                                    text: 'Only ' + total_stock_count + ' is available',
+                                    confirmButtonColor: "#e97730"
+                                });
+                                return;
                             }
                         }
-                        getCartCountContent();
-                    } else {
-                        Swal.fire({text: data.msg, confirmButtonColor: "#e97730"});
                     }
                 }
-            });
+
+                let form_data = new FormData();
+                form_data.append('uid', uid);
+                form_data.append('page', 'product_detail');
+                form_data.append('count', val);
+                form_data.append('product_uid', product_uid);
+                form_data.append('vendor_uid', vendor_uid);
+                form_data.append('product_size_id', product_size_id);
+                form_data.append('color_id', color_id);
+                form_data.append('warranty_id', warranty_id);
+                form_data.append('design_id', design_id);
+
+                let url = BASE_URL + "add_to_cart";
+                $.ajax({
+                    url: url,
+                    type: "POST",
+                    data: form_data,
+                    contentType: false,
+                    cache: false,
+                    processData: false,
+                    success: function (data) {
+                        if (data.status == 'Success') {
+                            btn.find('.cart-btn').html('Go to Cart');
+                            btn.find('.cart-btn').attr("type", "go_to_cart");
+                            if (color_check == 0) {
+                                $('#currentCount').val(val);
+                            } else {
+                                $('.prdt-color-select.active').attr('color-count', val);
+                                if (warranty_check == 1) {
+                                    $('.prdt-detail-color-warranty-select').find(':selected').attr('count-id', val);
+                                }
+                            }
+                            prdtDetailAddToCartCountBtn(total_stock_count, val);
+                            getCartCountContent();
+                        } else {
+                            Swal.fire({text: data.msg, confirmButtonColor: "#e97730"});
+                        }
+                    }
+                });
+            })
+
         } else if (btn_type == 'go_to_cart') {
             window.location.href = "cart";
         }
@@ -516,7 +528,11 @@ $(document).ready(function () {
 
                 $('.cart-plus-minus-box-prdt-detail').val(input_val);
             } else {
-                if (((parseInt(count) + parseInt(remaining_warranty_count)) <= parseInt(total_stock_count)) || (total_stock_count == 'unlimited')) {
+                let total_stock_count1 = total_stock_count;
+                if (total_stock_count == 'unlimited') {
+                    total_stock_count1 = 0;
+                }
+                if (((parseInt(count) + parseInt(remaining_warranty_count)) <= parseInt(total_stock_count1)) || (total_stock_count == 'unlimited')) {
                     if (count == current_count && (count != 0 && current_count != 0)) {
                         $(btn).closest('.product-details-action-wrap').find('.cart-btn').html('Go to Cart');
                         $(btn).closest('.product-details-action-wrap').find('.cart-btn').attr("type", "go_to_cart");
@@ -565,18 +581,13 @@ $(document).ready(function () {
     });
 
     $(document).on('click', '.prdt-color-select', function () {
-        let color_id = $(this).attr("color-id");
-        let count = $(this).attr("color-count");
-        let stock = $(this).attr("color-stock");
-        let warranty_check = $(this).attr("warranty-check");
-        let prdt_size_color_id = $(this).attr("prdt-size-color-id");
-        let design_id = $(this).attr("design-id");
+        let btn = this;
+        let warranty_check = $(btn).attr("warranty-check");
         if (warranty_check == 1) {
-            getColorWarrantList(color_id, prdt_size_color_id, stock, design_id);
+            getColorWarrantList(btn);
         } else {
-            prdtDetailAddToCartCountBtn(stock, count);
+            getColorCartCount(btn, '');
         }
-        getColorImage();
     });
 
     $(document).on('submit', '#appliedPromoCode', function (e) {
@@ -1302,12 +1313,33 @@ $(document).ready(function () {
     });
 
     $(document).on('change', '.prdt-detail-color-warranty-select', function () {
+        let btn = this;
+        let design_id = $('.prdt-detail-design-select').val();
+        let vendor_id = $('#vendorId').val();
+        let user_id = $('#userId').val();
+        let product_size_id = $('#prdtSizeId').val();
+        let color_id = $('.prdt-color-select.active').attr('color-id');
         let stock = $('.prdt-color-select.active').attr('color-stock');
-        let count = $(this).find(':selected').attr('count-id');
-        let price = $(this).find(':selected').attr('price-id');
-        let offer_price = $(this).find(':selected').attr('offer-price-id');
-        prdtDetailPriceOfferPrice(price, offer_price);
-        prdtDetailAddToCartCountBtn(stock, count);
+        let warranty_id = $('.prdt-detail-color-warranty-select').find(':selected').attr('warranty-id');
+
+        var ajaxurl = 'includes/functions.php',
+            data = {
+                'action': 'getCartCount',
+                'user_id': user_id,
+                'vendor_id': vendor_id,
+                'product_size_id': product_size_id,
+                'color_id': color_id,
+                'warranty_id': warranty_id,
+                'design_id': design_id,
+                'type': true,
+            };
+        $.post(ajaxurl, data, function (response) {
+            $('.prdt-detail-color-warranty-select').find(':selected').attr('count-id', response);
+            let price = $(btn).find(':selected').attr('price-id');
+            let offer_price = $(btn).find(':selected').attr('offer-price-id');
+            prdtDetailPriceOfferPrice(price, offer_price);
+            prdtDetailAddToCartCountBtn(stock, response);
+        })
     });
 
     $(document).on('change', '.prdt-detail-design-select', function () {
@@ -1603,15 +1635,19 @@ function getVendorListContent(page) {
     })
 }
 
-function getColorWarrantList(color_id, prdt_size_color_id, stock, design_id) {
+function getColorWarrantList(btn) {
+    let color_id = $(btn).attr("color-id");
+    let prdt_size_color_id = $(btn).attr("prdt-size-color-id");
+    let design_id = $('.prdt-detail-design-select').val();
     let product_size_id = $('#prdtSizeId').val();
+    let vendor_id = $('#vendorId').val();
     var ajaxUrl = 'includes/templates/prdt_detail_color_warranty_select.php',
         data = {
             color_id: color_id,
             product_size_id: product_size_id,
             prdt_size_color_id: prdt_size_color_id,
             design_id: design_id,
-            vendor_id: $('#vendorId').val(),
+            vendor_id: vendor_id,
         };
     $.post(ajaxUrl, data, function (html) {
         $('.color-warranty-select-div').html(html);
@@ -1620,8 +1656,34 @@ function getColorWarrantList(color_id, prdt_size_color_id, stock, design_id) {
         $('.prdt-color-select.active').attr('color-count', count);
         let price = $('.color-warranty-select-div .prdt-detail-color-warranty-select').find(':selected').attr('price-id');
         let offer_price = $('.color-warranty-select-div .prdt-detail-color-warranty-select').find(':selected').attr('offer-price-id');
+        let warranty_id = $('.color-warranty-select-div .prdt-detail-color-warranty-select').find(':selected').attr('warranty-id');
         prdtDetailPriceOfferPrice(price, offer_price);
-        prdtDetailAddToCartCountBtn(stock, count);
+        getColorCartCount(btn, warranty_id);
+    })
+}
+
+function getColorCartCount(btn, warranty_id) {
+    let color_id = $(btn).attr("color-id");
+    let stock = $(btn).attr("color-stock");
+    let design_id = $('.prdt-detail-design-select').val();
+    let vendor_id = $('#vendorId').val();
+    let user_id = $('#userId').val();
+    let product_size_id = $('#prdtSizeId').val();
+
+    var ajaxurl = 'includes/functions.php',
+        data = {
+            'action': 'getCartCount',
+            'user_id': user_id,
+            'vendor_id': vendor_id,
+            'product_size_id': product_size_id,
+            'color_id': color_id,
+            'warranty_id': warranty_id,
+            'design_id': design_id,
+            'type': true,
+        };
+    $.post(ajaxurl, data, function (response) {
+        prdtDetailAddToCartCountBtn(stock, response);
+        getColorImage();
     })
 }
 
