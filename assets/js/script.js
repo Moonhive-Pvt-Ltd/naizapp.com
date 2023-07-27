@@ -1710,8 +1710,14 @@ function getPrdtListItemContent(page) {
         data: data,
         cache: true,
         beforeSend: function () {
-            $('#prdtListItemDiv').html('')
-            $('#prdtListItemDiv1').html('')
+            let loading_html = ' <div class="col-md-12 align-items-center justify-content-center d-flex product-list-main-loader"\n' +
+                '                                     style="height: 300px">\n' +
+                '                                    <div class="spinner-border loading-color" role="status">\n' +
+                '                                        <span class="sr-only">Loading...</span>\n' +
+                '                                    </div>\n' +
+                '                                </div>'
+            $('#prdtListItemDiv').html(loading_html)
+            $('#prdtListItemDiv1').html(loading_html)
         },
         success: function (html) {
             if (view_mode == 'shop1') {
