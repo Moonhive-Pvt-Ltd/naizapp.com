@@ -46,7 +46,13 @@ if (login_check($mysqli) == false) { ?>
                                         <div class="login-register-form">
                                             <form id="userRegisterForm" method="post">
                                                 <input type="text" name="full_name" placeholder="Full name" required>
-                                                <input type="password" name="password" placeholder="Password" required>
+                                                <div class="reg-pswd-eye-div">
+                                                    <input type="password" name="password" class="password-type"
+                                                           placeholder="Password" required>
+                                                    <div class="pswd-eye-icon-div on-reg-password-eye-click cursor-pointer">
+                                                        <i class="fa fa-eye-slash eye-icon"></i>
+                                                    </div>
+                                                </div>
                                                 <input name="email" placeholder="Email" type="email" required>
                                                 <input name="mobile" placeholder="Mobile" type="text" required>
                                                 <div class="button-box btn-hover">

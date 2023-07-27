@@ -1510,6 +1510,19 @@ $(document).ready(function () {
         }
     });
 
+    $(document).on("click", ".on-reg-password-eye-click", function () {
+        var pswd_type = $('.password-type').attr('type');
+        if (pswd_type == 'password') {
+            $(this).find(".eye-icon").removeClass('fa fa-eye-slash');
+            $(this).find(".eye-icon").addClass('fa fa-eye');
+            $('.password-type').attr('type', 'text')
+        } else {
+            $(this).find(".eye-icon").removeClass('fa fa-eye');
+            $(this).find(".eye-icon").addClass('fa fa-eye-slash');
+            $('.password-type').attr('type', 'password')
+        }
+    });
+
 });
 
 function setCookie(cookie, value) {
