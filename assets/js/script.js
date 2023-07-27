@@ -68,7 +68,19 @@ $(document).ready(function () {
                 $(btn).prop('disabled', false);
                 $(btn).html('Register');
                 if (data.status == 'Success') {
-                    location.href = './login_register';
+                    Swal.fire({
+                        title: '<div class="mt-4"><h5>Registered Successfully</h5></div>',
+                        allowOutsideClick: false,
+                        showCancelButton: false,
+                        width: 400,
+                        padding: 8,
+                        confirmButtonText: `Ok`,
+                        confirmButtonColor: "#e97730",
+                    }).then((result) => {
+                        if (result.value) {
+                            location.href = './login_register';
+                        }
+                    });
                 } else {
                     Swal.fire({text: data.msg, confirmButtonColor: "#e97730"});
                 }
