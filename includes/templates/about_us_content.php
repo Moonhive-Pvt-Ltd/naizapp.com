@@ -4,44 +4,49 @@
             <div class="col-lg-6">
                 <div>
                     <p data-aos="fade-up" data-aos-delay="200">
-                        2009,BEING THE MILESTONE YEAR OF OUR COMPANY OF COURSE WAS FASCINATING. ESTABLISHED AS <b>‘’VARIETY
-                            ALUMINIUM FABRICATION,KOLLAM,KERALA”</b> WHO PREDOMINANTLY FOCUSED ON EXTERIOR CLADING WORKS
-                        AND DESIGNING MAINLY INCLUDED ACP CLADING AND STRUCTURAL GLAZING WORKS.OUR SERVICE SPREAD TO
-                        ALMOST ALL PARTS OF KERALA AND NOW SPREADING ALL OVER INDIA.
+                        2009, being the milestone year of our company of course was fascinating. Established as <b>‘’variety
+                            aluminium fabrication, kollam, kerala”</b> who predominantly focused on exterior clading
+                        works
+                        and
+                        designing mainly included acp clading and structural glazing works.Our service spread to almost
+                        all parts of kerala and now spreading all over india.
                     </p>
                     <p data-aos="fade-up" data-aos-delay="200">
-                        OUR FOUNDER <b>SRI AJITH KUMAR</b> A THROUGH HIS DEDICATION,HARD WORK,COURAGE TO FACE
-                        CHALLENGES
-                        ALONG WITH THE VISIONARY TO THE FUTURE SOLELY EMPHASISED ON THE QUALITY OF WORK AND CENT
-                        PERCENT
-                        CUSTOMER SATISFACTION.
+                        Our founder <b>Sri Ajith Kumar</b> a through his dedication, hard work, courage to face
+                        challenges
+                        along
+                        with the visionary to the future solely emphasised on the quality of work and cent percent
+                        customer satisfaction.
                     </p>
                     <p data-aos="fade-up" data-aos-delay="200">
-                        AT THIS POINT A REALISATION ON THE POTENTIAL OF ALUMINIUM IN MARKET,ITS COST EFFECTIVENESS,ITS
-                        DURABILITY AND SUSTAINABILITY PAVED THE WAY FOR THE CREATION OF A NEW COMPANY IN THE YEAR 2019
-                        <b>‘’ VARIETY ALUMINIUM TRADERZ”</b> WHICH STRONGLY RELIES ON THE SUCCESS MANTRA <b>“ GIVE TREES
-                            TO NATURE,CONSTRUCT FUTURE IN ALUMINIUM”</b>.
+                        At this point a realisation on the potential of aluminium in market, its cost effectiveness, its
+                        durability and sustainability paved the way for the creation of a new company in the year 2019
+                        <b>‘’variety aluminium traderz”</b> which strongly relies on the success mantra <b>“give trees
+                            to
+                            nature, construct future in aluminium”</b>.
                     </p>
 
                     <p data-aos="fade-up" data-aos-delay="200">
-                        WE HAVE A LUSH HERITAGE IN PROVIDING SUPER QUALITY WORKS ALONG WITH GRADE 1 QUALITY ALUMINIUM
-                        SECTIONS IN ALL ITS MARKED FIELDS.
+                        We have a lush heritage in providing super quality works along with grade 1 quality aluminium
+                        sections in all its marked fields.
                     </p>
                     <p data-aos="fade-up" data-aos-delay="200">
-                        THE YEAR 2022,WILL BE MARKED IN THE HISTORY OF ENTIRE ALUMINIUM FIELD IN KERALA SINCE OUR
-                        COMPANY IS LAUNCHING OUR NEW VENTURE ON ONLINE TRADING <b>“NAIZ TRADING PRIVATE
-                            LIMITED’’</b>
-                        WHICH WILL BE A GAME CHANGER IN THE FOLLOWING YEARS.
+                        The year 2022,will be marked in the history of entire aluminium field in kerala since our
+                        company is launching our new venture on online trading <b>“Naiz Trading Private Limited’’</b>
+                        which
+                        will be a game changer in the following years.
                     </p>
                     <p data-aos="fade-up" data-aos-delay="200">
-                        SOME NAMES ARE WORTH MENTIONING IN THIS SUCCESS <b>MY G GROUP</b> FOR THEIR TRUST IN FINISHING
-                        100 SHOWROOMS IN KERALA SINCE 2021 .<b>CAPITAL COLORPARK</b> FOR THEIR SUPPORT IN COMPLETING 4
-                        SHOWROOMS,<b>EICHER,CAKES AND CAKES,YAMAHA,HERO HONDA,FALOODA NATION,ASSET HOMES,SKYLINE
-                            BUILDERS,HARISREE KOLLAM,GRAND CONSTRUCTION,LEELA GROUP,LOOCA,VR BANKERS</b> FOR THEIR
-                        OVERWHELMING SUPPORT AND BELIEF.
+                        Some names are worth mentioning in this success <b>My G Group</b> for their trust in finishing
+                        100
+                        showrooms in kerala since 2021. Capital colorpark for their support in completing 4
+                        showrooms, <b>eicher, cakes and cakes, yamaha, hero honda, falooda nation, asset homes, skyline
+                            builders, harisree kollam, grand construction, leela group, looca, vr bankers</b> for their
+                        overwhelming
+                        support and belief.
                     </p>
                     <p data-aos="fade-up" data-aos-delay="200">
-                        <b> SPECIAL THANKS TO OUR PIONEER FOR THE SUCCESS AND WISHES MORE TO GO IN THIS LONG RUN</b>
+                        <b>Special thanks to our pioneer for the success and wishes more to go in this long run</b>
                     </p>
                     <!--                    <h2 data-aos="fade-up" data-aos-delay="200">Furniture</h2>-->
                     <!--                    <h1 data-aos="fade-up" data-aos-delay="300">Best Furniture</h1>-->
