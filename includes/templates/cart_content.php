@@ -3,9 +3,9 @@ $user_uid = isset($_COOKIE['naiz_web_user_uid']) ? $_COOKIE['naiz_web_user_uid']
 $vendor_uid = isset($_COOKIE['naiz_web_vendor_uid']) ? $_COOKIE['naiz_web_vendor_uid'] : '';
 
 $post = [
-  'uid' => $user_uid,
-  'vendor_uid' => $vendor_uid,
-  'type' => 'initial',
+    'uid' => $user_uid,
+    'vendor_uid' => $vendor_uid,
+    'type' => 'initial',
 ];
 $url = BASE_URL . "get_cart_list";
 $result = getApiData($url, $post);
@@ -37,7 +37,7 @@ if ($result['status'] == 'Success') { ?>
                                     <?php
                                     if (count($result['cart_detail']['cart']) > 0) {
                                         foreach ($result['cart_detail']['cart'] as $row) {
-                                                include 'cart_table_tr.php';
+                                            include 'cart_table_tr.php';
                                             if ($row['error']) { ?>
                                                 <tr>
                                                     <td colspan="7"
@@ -98,6 +98,7 @@ if ($result['status'] == 'Success') { ?>
                                 <h4>Total <span>
                                         ₹<span class="total-price-cost"><?php echo $result['cart_detail']['total_cost']; ?></span>
                                         </span>
+                                    <input type="hidden" value="0" class="total-price-total-hidden">
                                 </h4>
                             </div>
                             <div class="grand-total-btn btn-hover">

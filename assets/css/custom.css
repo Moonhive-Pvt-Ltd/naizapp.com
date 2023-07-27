@@ -277,6 +277,22 @@
     margin-bottom: 20px
 }
 
+.cart-checkbox-image {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+}
+
+.cart-checkbox-div {
+    padding-right: 20px;
+}
+
+.cart-checkbox-input {
+    height: 15px;
+    width: 15px
+}
+
 @media only screen and (max-width: 767px) {
     .grand-total-wrap .grand-total-btn span {
         font-size: 16px;

@@ -14,6 +14,24 @@ if (isset($_POST['prdt_size_color_id'])) {
     $product_size_id = $_POST['product_size_id'];
     $prdt_size_color_id = $_POST['prdt_size_color_id'];
     $design_id = $_POST['design_id'];
+    $cart_id = $_POST['cart_id'];
+
+    $cart_vendor_id = '';
+    $cart_product_size_id = '';
+    $cart_color_id = '';
+    $cart_warranty_id = '';
+    $cart_product_design_id = '';
+    $cart_count_value = '';
+    $cart_query = mysqli_query($mysqli, "SELECT * FROM cart WHERE id = '$cart_id'");
+    if (mysqli_num_rows($cart_query)) {
+        $cart_row = mysqli_fetch_array($cart_query);
+        $cart_vendor_id = $cart_row['vendor_id'];
+        $cart_product_size_id = $cart_row['product_size_id'];
+        $cart_color_id = $cart_row['color_id'];
+        $cart_warranty_id = $cart_row['warranty_id'];
+        $cart_product_design_id = $cart_row['product_design_id'];
+        $cart_count_value = $cart_row['count'];
+    }
 
     $product_size_color_warranty_rlt = mysqli_query($mysqli, "SELECT product_size_color_warranty.*,
                                                                                             warranty.warranty
@@ -36,9 +54,8 @@ if (isset($_POST['prdt_size_color_id'])) {
     }
 
 } else {
-    $color_warranty_list = $product_size['color_stock'][0]['warranty_data'];
+    $color_warranty_list = $product_size['color_stock'][$a]['warranty_data'];
 }
-
 
 ?>
 <div class="select-style mb-15 mt-15 col-md-4">
@@ -51,7 +68,12 @@ if (isset($_POST['prdt_size_color_id'])) {
                     warranty-id="<?php echo $prdt_warranty['warranty_id']; ?>"
                     count-id="<?php echo $war_count; ?>"
                     price-id="<?php echo $prdt_warranty['price']; ?>"
-                    offer-price-id="<?php echo $prdt_warranty['offer_price']; ?>">
+                    offer-price-id="<?php echo $prdt_warranty['offer_price']; ?>"
+                <?php if ($cart_warranty_id != '') {
+                    if ($cart_warranty_id == $prdt_warranty['warranty_id']) {
+                        echo "selected";
+                    }
+                } ?>>
             <?php echo $prdt_warranty['warranty_name']; ?>
             </option>
         <?php } ?>

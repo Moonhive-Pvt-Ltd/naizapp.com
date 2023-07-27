@@ -727,14 +727,16 @@ class API extends REST
         $uid = isset($this->_request['uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['uid']) : null;
         $vendor_uid = isset($this->_request['vendor_uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['vendor_uid']) : null;
         $type = isset($this->_request['type']) ? mysqli_real_escape_string($this->mysqli, $this->_request['type']) : null;
+        $cart_id_array_val = isset($this->_request['cart_id_array']) ? $this->_request['cart_id_array'] : null;
         $user_id = $this->db_user->isValidUserId($uid);
 
         if ($user_id) {
             $vendor_id = $this->db_user->isValidVendorId($vendor_uid);
 
             if ($vendor_id) {
+
                 //get cart list
-                $cart = mysqli_query($this->mysqli, "SELECT cart.id AS cart_id,
+                $cart_result = "SELECT cart.id AS cart_id,
                                                                cart.count,
                                                                cart.color_id,
                                                                cart.warranty_id,
@@ -796,9 +798,18 @@ class API extends REST
                                                         ON category.id = product_category.category_id
                                                         AND category.status = 'active'
                                                         WHERE cart.user_id = '$user_id'
-                                                        AND cart.vendor_id = '$vendor_id'
-                                                        GROUP BY cart_id
-                                                        ORDER BY cart.timestamp DESC");
+                                                        AND cart.vendor_id = '$vendor_id'";
+
+                if ($cart_id_array_val != null) {
+                    $cart_id_array = json_decode($cart_id_array_val, true);
+                    if (count($cart_id_array) > 0) {
+                        $cart_id_arr = implode(",", $cart_id_array);
+                        $cart_result .= " AND cart.id IN ($cart_id_arr)";
+                    }
+                }
+
+                $cart_result .= " GROUP BY cart_id ORDER BY cart.timestamp DESC";
+                $cart = mysqli_query($this->mysqli, $cart_result);
 
                 $cart_data = array();
                 $error_count = 0;
@@ -965,7 +976,7 @@ class API extends REST
                                 if ($row['status'] == 'active') {
                                     if ($stock != 'unlimited') {
                                         if ($row['warranty_id'] || $row['product_design_id']) {
-                                            $warranty_query = mysqli_query($this->mysqli, "SELECT SUM(cart.count) AS total_cart_count
+                                            $warranty_result_query = "SELECT SUM(cart.count) AS total_cart_count
                                                                                               FROM cart
                                                                                               WHERE cart.user_id = '$user_id'
                                                                                               AND cart.vendor_id = '$vendor_id'
@@ -975,7 +986,18 @@ class API extends REST
                                                                                               AND ((cart.warranty_id IS NOT NULL
                                                                                               AND cart.product_design_id IS NOT NULL)
                                                                                               OR cart.warranty_id IS NOT NULL
-                                                                                              OR cart.product_design_id IS NOT NULL)");
+                                                                                              OR cart.product_design_id IS NOT NULL)";
+
+                                            if ($cart_id_array_val != null) {
+                                                $cart_id_array = json_decode($cart_id_array_val, true);
+                                                if (count($cart_id_array) > 0) {
+                                                    $cart_id_arr = implode(",", $cart_id_array);
+                                                    $warranty_result_query .= " AND cart.id IN ($cart_id_arr)";
+                                                }
+                                            }
+
+                                            $warranty_query = mysqli_query($this->mysqli, $warranty_result_query);
+
                                             if (mysqli_num_rows($warranty_query)) {
                                                 $row_warranty = mysqli_fetch_array($warranty_query);
                                                 $count = $row_warranty['total_cart_count'];
@@ -1123,6 +1145,13 @@ class API extends REST
                                     $success = array('status' => "Failed", 'msg' => "Failed");
                                     $this->response($this->json($success), 200);
                                 }
+                            } else if ($page == 'change_cart') {
+                                $product_rlt = mysqli_query($this->mysqli, "UPDATE cart
+                                                                          SET `count` = '$count',
+                                                                               color_id = $color_id,
+                                                                               warranty_id = $warranty_id,
+                                                                               product_design_id = $design_id
+                                                                          WHERE id = '$cart_id'");
                             } else {
                                 $success = array('status' => "Failed", 'msg' => "Failed");
                                 $this->response($this->json($success), 200);
@@ -1903,6 +1932,7 @@ class API extends REST
         $shipping_fee = isset($this->_request['shipping_fee']) ? mysqli_real_escape_string($this->mysqli, $this->_request['shipping_fee']) : null;
         $address_id = isset($this->_request['address_id']) ? mysqli_real_escape_string($this->mysqli, $this->_request['address_id']) : null;
         $order_type = isset($this->_request['order_type']) ? mysqli_real_escape_string($this->mysqli, $this->_request['order_type']) : null;
+        $cart_id_array_val = isset($this->_request['cart_id_array']) ? $this->_request['cart_id_array'] : null;
         $order_uid = $this->create_alpha_numeric_string(16);
         $order_id = '';
         $total_amount = round($amount, 2);
@@ -1970,8 +2000,17 @@ class API extends REST
                        ON product_size_color_warranty.product_size_color_id = product_size_color.id 
                        AND product_size_color_warranty.warranty_id = cart.warranty_id
                        WHERE cart.user_id = '$user_id'
-                       AND cart.vendor_id = '$vendor_id'
-                       GROUP BY cart.id";
+                       AND cart.vendor_id = '$vendor_id'";
+
+                if ($cart_id_array_val != null) {
+                    $cart_id_array = json_decode($cart_id_array_val, true);
+                    if (count($cart_id_array) > 0) {
+                        $cart_id_arr = implode(",", $cart_id_array);
+                        $query .= " AND cart.id IN ($cart_id_arr)";
+                    }
+                }
+
+                $query .= " GROUP BY cart.id";
 
                 $query_rlt = mysqli_query($this->mysqli, $query);
                 if (mysqli_num_rows($query_rlt)) {
@@ -2046,7 +2085,7 @@ class API extends REST
 
                                 if ($stock != 'unlimited') {
                                     if ($row['warranty_id'] || $row['product_design_id']) {
-                                        $warranty_query = mysqli_query($this->mysqli, "SELECT SUM(cart.count) AS total_cart_count
+                                        $warranty_result_query = "SELECT SUM(cart.count) AS total_cart_count
                                                                                               FROM cart
                                                                                               WHERE cart.user_id = '$user_id'
                                                                                               AND cart.vendor_id = '$vendor_id'
@@ -2056,7 +2095,19 @@ class API extends REST
                                                                                               AND ((cart.warranty_id IS NOT NULL
                                                                                               AND cart.product_design_id IS NOT NULL)
                                                                                               OR cart.warranty_id IS NOT NULL
-                                                                                              OR cart.product_design_id IS NOT NULL)");
+                                                                                              OR cart.product_design_id IS NOT NULL)";
+
+
+                                        if ($cart_id_array_val != null) {
+                                            $cart_id_array = json_decode($cart_id_array_val, true);
+                                            if (count($cart_id_array) > 0) {
+                                                $cart_id_arr = implode(",", $cart_id_array);
+                                                $warranty_result_query .= " AND cart.id IN ($cart_id_arr)";
+                                            }
+                                        }
+
+                                        $warranty_query = mysqli_query($this->mysqli, $warranty_result_query);
+
                                         if (mysqli_num_rows($warranty_query)) {
                                             $row_warranty = mysqli_fetch_array($warranty_query);
                                             $count = $row_warranty['total_cart_count'];
@@ -2280,8 +2331,17 @@ class API extends REST
                                   AND (vendor_stock.color_id = cart.color_id
                                   OR cart.color_id IS NULL)
                                   WHERE cart.user_id = '$user_id'
-                                  AND cart.vendor_id = '$vendor_id'
-                                  GROUP BY vendor_stock.id";
+                                  AND cart.vendor_id = '$vendor_id'";
+
+                        if ($cart_id_array_val != null) {
+                            $cart_id_array = json_decode($cart_id_array_val, true);
+                            if (count($cart_id_array) > 0) {
+                                $cart_id_arr = implode(",", $cart_id_array);
+                                $query .= " AND cart.id IN ($cart_id_arr)";
+                            }
+                        }
+
+                        $query .= " GROUP BY vendor_stock.id";
 
                         $query_rlt = mysqli_query($this->mysqli, $query);
                         while ($row = mysqli_fetch_array($query_rlt)) {
@@ -2296,9 +2356,18 @@ class API extends REST
                             }
                         }
 
-                        $delete_cart = mysqli_query($this->mysqli, "DELETE FROM cart
-                                                                           WHERE user_id = '$user_id'
-                                                                           AND vendor_id = '$vendor_id'");
+                        $delete_cart_query = "DELETE FROM cart
+                                              WHERE user_id = '$user_id'
+                                              AND vendor_id = '$vendor_id'";
+
+                        if ($cart_id_array_val != null) {
+                            $cart_id_array = json_decode($cart_id_array_val, true);
+                            if (count($cart_id_array) > 0) {
+                                $cart_id_arr = implode(",", $cart_id_array);
+                                $delete_cart_query .= " AND id IN ($cart_id_arr)";
+                            }
+                        }
+                        $delete_cart = mysqli_query($this->mysqli, $delete_cart_query);
 
                         $this->send_mail_variables('order_confirmed', $order_id);
 
@@ -2334,6 +2403,7 @@ class API extends REST
         $payment_id = isset($this->_request['payment_id']) ? mysqli_real_escape_string($this->mysqli, $this->_request['payment_id']) : null;
         $signature = isset($this->_request['signature']) ? mysqli_real_escape_string($this->mysqli, $this->_request['signature']) : null;
         $total_amt = isset($this->_request['total_amt']) ? mysqli_real_escape_string($this->mysqli, $this->_request['total_amt']) : null;
+        $cart_id_array_val = isset($this->_request['cart_id_array']) ? $this->_request['cart_id_array'] : null;
 
         $user_id = $this->db_user->isValidUserId($uid);
 
@@ -2400,8 +2470,17 @@ class API extends REST
                                   AND (vendor_stock.color_id = cart.color_id
                                   OR cart.color_id IS NULL)
                                   WHERE cart.user_id = '$user_id'
-                                  AND cart.vendor_id = '$vendor_id'
-                                  GROUP BY vendor_stock.id";
+                                  AND cart.vendor_id = '$vendor_id'";
+
+                        if ($cart_id_array_val != null) {
+                            $cart_id_array = json_decode($cart_id_array_val, true);
+                            if (count($cart_id_array) > 0) {
+                                $cart_id_arr = implode(",", $cart_id_array);
+                                $query .= " AND cart.id IN ($cart_id_arr)";
+                            }
+                        }
+
+                        $query .= " GROUP BY vendor_stock.id";
 
                         $query_rlt = mysqli_query($this->mysqli, $query);
                         while ($row = mysqli_fetch_array($query_rlt)) {
@@ -2416,9 +2495,18 @@ class API extends REST
                             }
                         }
 
-                        $delete_cart = mysqli_query($this->mysqli, "DELETE FROM cart
-                                                                           WHERE user_id = '$user_id'
-                                                                           AND vendor_id = '$vendor_id'");
+                        $delete_cart_query = "DELETE FROM cart
+                                              WHERE user_id = '$user_id'
+                                              AND vendor_id = '$vendor_id'";
+
+                        if ($cart_id_array_val != null) {
+                            $cart_id_array = json_decode($cart_id_array_val, true);
+                            if (count($cart_id_array) > 0) {
+                                $cart_id_arr = implode(",", $cart_id_array);
+                                $delete_cart_query .= " AND id IN ($cart_id_arr)";
+                            }
+                        }
+                        $delete_cart = mysqli_query($this->mysqli, $delete_cart_query);
 
                         $this->send_mail_variables('order_confirmed', $order_id);
 

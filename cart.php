@@ -1,5 +1,8 @@
 <?php include_once 'includes/functions.php';
-if (login_check($mysqli) == true) { ?>
+if (login_check($mysqli) == true) {
+    unset($_COOKIE['cart_id_array']);
+    setcookie('cart_id_array', null, -1, '/');
+    ?>
     <!DOCTYPE html>
     <html lang="zxx">
     <?php include_once 'includes/header.php'; ?>

@@ -48,8 +48,7 @@ if (login_check($mysqli) == true) {
                                                 <div class="welcome">
                                                     <p>Hello, <strong><?php echo $full_name; ?></strong> (If Not
                                                         <strong><?php echo $full_name; ?>
-                                                            !</strong><a href="login-register.html" class="logout">
-                                                            Logout</a>)</p>
+                                                            ! </strong><a href="logout">Logout</a>)</p>
                                                 </div>
                                                 <p class="mb-0">From your account dashboard. you can easily check & view
                                                     your recent orders, manage your shipping and billing addresses and
