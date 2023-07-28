@@ -1,17 +1,12 @@
 <?php
-include_once '../functions.php';
 $vendor_uid = isset($_COOKIE['naiz_web_vendor_uid']) ? $_COOKIE['naiz_web_vendor_uid'] : '';
 $post = [
     'vendor_uid' => $vendor_uid,
 ];
 $url = BASE_URL . "get_home_page";
 $home_result = getApiData($url, $post);
-//print_r($home_result);
-//print_r($home_result['status']);
-//print_r($home_result['msg']);
 
 if ($home_result['status'] == 'Success') {
-//    print_r($home_result['home_page']);
 }
 ?>
 
@@ -35,8 +30,8 @@ if ($home_result['status'] == 'Success') {
                                                     <?php echo $main_slider_row['button_name']; ?>
                                                 </a>
                                             </div>
-<!--                                            <h2 class="animated">Furniture</h2>-->
-<!--                                            <img class="animated" src="assets/images/icon-img/chair.png" alt="">-->
+                                            <!--                                            <h2 class="animated">Furniture</h2>-->
+                                            <!--                                            <img class="animated" src="assets/images/icon-img/chair.png" alt="">-->
                                         </div>
                                     </div>
                                 </div>
@@ -52,12 +47,16 @@ if ($home_result['status'] == 'Success') {
 <?php } ?>
 
 <?php if (count($home_result['home_page']['category']) > 0) { ?>
-    <div class="category-area bg-gray-4 pt-95 pb-100">
+    <div class="product-area bg-gray-4 pt-95 pb-100">
         <div class="container">
-            <div class="section-title-2 st-border-center text-center mb-75" data-aos="fade-up" data-aos-delay="200">
-                <h2>Products Category</h2>
+            <div class="section-border section-border-margin-1" data-aos="fade-up" data-aos-delay="200">
+                <div class="section-title-timer-wrap bg-gray-4">
+                    <div class="section-title-1">
+                        <h2>Products Category</h2>
+                    </div>
+                </div>
             </div>
-            <div class="category-slider-active-2 swiper-container">
+            <div class="product-slider-active-1 swiper-container">
                 <div class="swiper-wrapper">
                     <?php foreach ($home_result['home_page']['category'] AS $category_row) { ?>
                         <div class="swiper-slide">
@@ -83,10 +82,15 @@ if ($home_result['status'] == 'Success') {
                         </div>
                     <?php } ?>
                 </div>
+                <div class="product-prev-1 product-nav-1" data-aos="fade-up" data-aos-delay="200"><i
+                            class="fa fa-angle-left"></i></div>
+                <div class="product-next-1 product-nav-1" data-aos="fade-up" data-aos-delay="200"><i
+                            class="fa fa-angle-right"></i></div>
             </div>
         </div>
     </div>
 <?php } ?>
+
 <div class="product-area pt-95 pb-60">
     <div class="container">
         <div class="section-title-tab-wrap mb-75" data-aos="fade-up" data-aos-delay="200">
@@ -326,6 +330,3 @@ if ($home_result['status'] == 'Success') {
         </div>
     </div>
 <?php } ?>
-
-<?php include_once '../footer_bottom.php'; ?>
-<?php include_once '../sidebar.php'; ?>

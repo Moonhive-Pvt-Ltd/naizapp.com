@@ -985,19 +985,19 @@ $(document).ready(function () {
             const modal_id = document.querySelector('#modalDivId');
             const modal = bootstrap.Modal.getInstance(modal_id);
             modal.hide();
-            getHomeContent();
-            // location.reload();
+            // getHomeContent();
+            location.reload();
         } else {
             Swal.fire({text: 'Select a Vendor', confirmButtonColor: "#e97730"});
         }
     });
 
-    if (document.getElementById('homeContent')) {
-        let naiz_web_vendor_uid = getCookie('naiz_web_vendor_uid');
-        if (naiz_web_vendor_uid != '') {
-            getHomeContent();
-        }
-    }
+    // if (document.getElementById('homeContent')) {
+    //     let naiz_web_vendor_uid = getCookie('naiz_web_vendor_uid');
+    //     if (naiz_web_vendor_uid != '') {
+    //         getHomeContent();
+    //     }
+    // }
 
     if (document.getElementById('landingPage')) {
         var myModal = new bootstrap.Modal(document.getElementById('modalDivId'), {
@@ -1731,10 +1731,15 @@ function getPrdtListItemContent(page) {
             let start = ((page - 1) * limit + 1);
             let end = (parseInt(start) + parseInt(list_length) - 1);
             let text = 'Showing ' + start + '-' + end + ' of ' + total_count + ' results';
+
             if (start == end) {
                 text = 'Showing ' + start + ' of ' + total_count + ' results';
             }
-            if (total_count > 0) {
+
+            if (total_count == 0) {
+                text = 'Showing 0 of ' + total_count + ' results';
+            }
+            if (total_count >= 0) {
                 $('.showing-item span').html(text);
             }
         }
@@ -1868,19 +1873,19 @@ function prdtDetailPriceOfferPrice(price, offer_price) {
     }
 }
 
-function getHomeContent() {
-    $.ajax({
-        type: "GET",
-        url: "includes/templates/home_content.php",
-        cache: true,
-        beforeSend: function () {
-            $('#homeContent').html('')
-        },
-        success: function (html) {
-            $('#homeContent').html(html)
-        }
-    })
-}
+// function getHomeContent() {
+//     $.ajax({
+//         type: "GET",
+//         url: "includes/templates/home_content.php",
+//         cache: true,
+// beforeSend: function () {
+//     $('#homeContent').html('')
+// },
+// success: function (html) {
+//     $('#homeContent').html(html)
+// }
+// })
+// }
 
 function getColorImage() {
     var color_id = $('.prdt-color-select.active').attr('color-id');
