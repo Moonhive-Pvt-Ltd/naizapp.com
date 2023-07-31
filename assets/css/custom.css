@@ -325,9 +325,19 @@
     color: green;
 }
 
+.hot-product-nav {
+    white-space: nowrap !important;
+    flex-wrap: unset !important;
+}
+
 @media only screen and (max-width: 767px) {
     .grand-total-wrap .grand-total-btn span {
         font-size: 16px;
+    }
+
+    .hot-product-nav {
+        white-space: unset !important;
+        flex-wrap: wrap !important;
     }
 }
 
@@ -335,10 +345,20 @@
     .product-detail-cart {
         margin: 0 10px 0 10px;
     }
+
+    .hot-product-nav {
+        white-space: unset !important;
+        flex-wrap: wrap !important;
+    }
 }
 
 @media only screen and (max-width: 767px) {
     .product-detail-cart > a {
         padding: 20px 17px;
+    }
+
+    .hot-product-nav {
+        white-space: unset !important;
+        flex-wrap: wrap !important;
     }
 }

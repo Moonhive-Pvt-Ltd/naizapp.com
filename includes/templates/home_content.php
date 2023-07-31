@@ -97,7 +97,7 @@ if ($home_result['status'] == 'Success') {
             <div class="section-title-2">
                 <h2>Hot Products</h2>
             </div>
-            <div class="tab-style-1 nav">
+            <div class="tab-style-1 nav hot-product-nav">
                 <a class="active" href="#newLaunches" data-bs-toggle="tab">New Launches </a>
                 <a href="#topPicks" data-bs-toggle="tab" class=""> Top Picks </a>
                 <a href="#mostViewed" data-bs-toggle="tab" class=""> Most Viewed </a>
