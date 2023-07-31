@@ -1,5 +1,7 @@
 <?php include_once 'includes/functions.php';
-if (login_check($mysqli) == true) { ?>
+if (login_check($mysqli) == true) {
+    $order_s = isset($_GET['s']) ? $_GET['s'] : '';
+    ?>
     <!DOCTYPE html>
     <html lang="zxx">
     <?php include_once 'includes/header.php'; ?>
@@ -10,7 +12,18 @@ if (login_check($mysqli) == true) { ?>
         <?php
         $title = 'My Orders ';
         include_once 'includes/templates/header_content.php'; ?>
-        <div class="pb-100 pt-100">
+        <div class="pt-80">
+            <?php
+            if ($order_s == 1) { ?>
+                <div class="text-center">
+                    <img src="assets/images/tick.jpg" alt="" height="70">
+                    <div class="pt-15">
+                        <h4 class="text-green">Order Placed Successfully</h4>
+                    </div>
+                </div>
+            <?php } ?>
+        </div>
+        <div class="pb-100 pt-80">
             <div class="container">
                 <?php include_once 'includes/templates/order_history_content.php'; ?>
             </div>

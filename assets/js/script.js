@@ -1126,6 +1126,7 @@ $(document).ready(function () {
                     if (response.status == 'Success') {
                         let order_id = response.order_id;
                         let amount = response.amount;
+                        let order_uid = response.order_uid;
 
                         var razorpay_options = {
                             currency: 'INR',
@@ -1167,7 +1168,7 @@ $(document).ready(function () {
                                                 type: 'success',
                                                 title: 'Placed Successfully'
                                             });
-                                            window.location.href = './index';
+                                            window.location.href = './order_history?uid=' + order_uid + '&s=1';
                                         } else {
                                             $(btn).prop('disabled', false);
                                             $(btn).html('Online Payment');
@@ -1288,7 +1289,8 @@ $(document).ready(function () {
                                     type: 'success',
                                     title: 'Placed Successfully'
                                 });
-                                window.location.href = './index';
+                                let order_uid = response.order_uid;
+                                window.location.href = './order_history?uid=' + order_uid + '&s=1';
                             } else {
                                 if (response.error_type == 1) {
                                     window.location.href = './cart';

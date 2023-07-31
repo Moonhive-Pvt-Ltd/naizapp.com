@@ -1830,17 +1830,27 @@ class API extends REST
 
         $page = isset($this->_request['page']) ? mysqli_real_escape_string($this->mysqli, $this->_request['page']) : 1;
 
-        $limit = 6;
-        $lower_limit = ($page - 1) * $limit;
         //get store list
-        $store_list = mysqli_query($this->mysqli, "SELECT SQL_CALC_FOUND_ROWS vendor.* FROM vendor
-                                                          WHERE status = 'active'
-                                                          LIMIT $lower_limit, $limit");
+        $store_list_query = "SELECT SQL_CALC_FOUND_ROWS vendor.* 
+                             FROM vendor
+                             WHERE status = 'active'";
 
-        $count_rlt = mysqli_query($this->mysqli, "SELECT FOUND_ROWS() AS data_count");
-        $count_rlt = mysqli_fetch_assoc($count_rlt);
-        $data_count = $count_rlt['data_count'];
-        $total_pages = ceil($data_count / $limit);
+        if ($page != 'all') {
+            $limit = 6;
+            $lower_limit = ($page - 1) * $limit;
+            $store_list_query .= " LIMIT $lower_limit, $limit";
+
+            $store_list = mysqli_query($this->mysqli, $store_list_query);
+
+            $count_rlt = mysqli_query($this->mysqli, "SELECT FOUND_ROWS() AS data_count");
+            $count_rlt = mysqli_fetch_assoc($count_rlt);
+            $data_count = $count_rlt['data_count'];
+            $total_pages = ceil($data_count / $limit);
+        } else {
+            $store_list = mysqli_query($this->mysqli, $store_list_query);
+            $total_pages = 0;
+        }
+
 
         $store_list_data = array();
         if (mysqli_num_rows($store_list)) {
@@ -1979,6 +1989,7 @@ class API extends REST
                        AND product_color_image.color_id = cart.color_id
                        LEFT JOIN product_design
                        ON product_design.product_id = product.id
+                       AND product_design.status = 'active'
                        LEFT JOIN product_design_image
                        ON product_design_image.product_design_id = product_design.id
                        AND product_design_image.product_design_id = cart.product_design_id
@@ -2371,7 +2382,7 @@ class API extends REST
 
                         $this->send_mail_variables('order_confirmed', $order_id);
 
-                        $success = array('status' => "Success", 'msg' => "Order Placed Successfully");
+                        $success = array('status' => "Success", 'msg' => "Order Placed Successfully", 'order_uid' => $order_uid);
                         $this->response($this->json($success), 200);
                     } else {
                         $this->send_mail_variables('order_failed', $order_id);

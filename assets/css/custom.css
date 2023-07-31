@@ -242,17 +242,17 @@
 #prdtListItemDiv1 .product-wrap .product-img a img,
 #prdtListItemDiv .product-wrap .product-img a img {
     height: 155px;
-    object-fit: cover;
+    object-fit: contain;
 }
 
 .product-wrap .product-img a img {
     height: 180px;
-    object-fit: cover;
+    object-fit: contain;
 }
 
 .product-slider-active-1 .product-wrap .product-img a img {
     height: 300px;
-    object-fit: cover;
+    object-fit: contain;
 }
 
 .padding-0px {
@@ -309,11 +309,20 @@
 }
 
 .selected-main-header-menu {
-    color: #e97730!important;
+    color: #e97730 !important;
 }
 
 .loading-color {
-    color: #e97730!important;
+    color: #e97730 !important;
+}
+
+.order-success-icon {
+    font-size: 60px;
+    color: green;
+}
+
+.text-green {
+    color: green;
 }
 
 @media only screen and (max-width: 767px) {
