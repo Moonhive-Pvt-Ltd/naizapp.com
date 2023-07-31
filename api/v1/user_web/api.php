@@ -1786,6 +1786,10 @@ class API extends REST
                 OR ((product_size.offer_price BETWEEN '$price_start' AND '$price_end') AND product_size.offer_price NOT IN (0)))";
             }
 
+            if ($sort_by == 'avg_rating') {
+                $query .= " AND product_review.rating > 0";
+            }
+
             $query .= " GROUP BY product.id";
             if ($sort_by == 'avg_rating') {
                 $query .= " ORDER BY rating DESC";
