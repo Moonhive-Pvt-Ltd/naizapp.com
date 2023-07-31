@@ -4,10 +4,13 @@
 <?php include_once 'includes/header.php'; ?>
 <body>
 <div class="main-wrapper main-wrapper-2">
-    <div id="landingPage"></div>
+    <?php
+    if (!isset($_COOKIE['landing_page'])) { ?>
+        <div id="landingPage"></div>
+    <?php } else if (isset($_COOKIE['landing_page']) && ($_COOKIE['landing_page'] === 'yes')) { ?>
+        <div id="landingPage"></div>
+    <?php } ?>
     <?php include_once 'includes/navbar.php'; ?>
-    <!-- mini cart start -->
-    <!--        <div id="homeContent"></div>-->
 
     <?php
     $vendor_uid = isset($_COOKIE['naiz_web_vendor_uid']) ? $_COOKIE['naiz_web_vendor_uid'] : '';

@@ -26,7 +26,7 @@ if (mysqli_num_rows($rlt)) {
 } ?>
 
 <div class="header-action-style header-action-cart">
-    <a title="Cart" href="cart">
+    <a title="Cart" type="cart" class="on-menu-nav-click">
         <i class="pe-7s-shopbag">
             <span class="product-count bg-black"><?php echo $cart_count; ?></span>
         </i>

@@ -56,6 +56,7 @@
         <?php include_once 'includes/footer_bottom.php'; ?>
         <?php include_once 'includes/sidebar.php';
     } ?>
+    <div id="menuNavDiv"></div>
 </div>
 <!-- All JS is here -->
 <?php include_once 'includes/footer.php'; ?>

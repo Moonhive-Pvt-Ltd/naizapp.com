@@ -30,36 +30,40 @@ $page = basename($_SERVER['PHP_SELF']);
                         <nav>
                             <ul>
                                 <li>
-                                    <a href="index" class="<?php if ($page == 'index.php') {
+                                    <a type="index" class="on-menu-nav-click <?php if ($page == 'index.php') {
                                         echo "selected-main-header-menu";
                                     } else {
                                         echo "";
                                     } ?>">HOME</a>
                                 </li>
                                 <li>
-                                    <a href="shop" class="<?php if ($page == 'shop.php') {
+                                    <a type="shop" class="on-menu-nav-click <?php if ($page == 'shop.php') {
                                         echo "selected-main-header-menu";
                                     } else {
                                         echo "";
                                     } ?>">SHOP</a>
                                 </li>
                                 <li>
-                                    <a href="products" class="<?php if ($page == 'products.php') {
+                                    <a type="products" class="on-menu-nav-click <?php if ($page == 'products.php') {
                                         echo "selected-main-header-menu";
                                     } else {
                                         echo "";
                                     } ?>">PRODUCTS</a>
                                 </li>
-                                <li><a href="about_us" class="<?php if ($page == 'about_us.php') {
+                                <li>
+                                    <a type="about_us" class="on-menu-nav-click <?php if ($page == 'about_us.php') {
                                         echo "selected-main-header-menu";
                                     } else {
                                         echo "";
-                                    } ?>">ABOUT</a></li>
-                                <li><a href="contact_us" class="<?php if ($page == 'contact_us.php') {
+                                    } ?>">ABOUT</a>
+                                </li>
+                                <li>
+                                    <a type="contact_us" class="on-menu-nav-click <?php if ($page == 'contact_us.php') {
                                         echo "selected-main-header-menu";
                                     } else {
                                         echo "";
-                                    } ?>">CONTACT US</a></li>
+                                    } ?>">CONTACT US</a>
+                                </li>
                             </ul>
                         </nav>
                     </div>
@@ -67,7 +71,7 @@ $page = basename($_SERVER['PHP_SELF']);
                 <div class="col-lg-3 col-md-6 col-6">
                     <div class="header-action-wrap">
                         <div class="header-action-style">
-                            <a title="Account" href="account"><i class="pe-7s-user"></i></a>
+                            <a title="Account" type="account" class="on-menu-nav-click"><i class="pe-7s-user"></i></a>
                         </div>
 
                         <div id="cartCountContent"></div>

@@ -985,19 +985,44 @@ $(document).ready(function () {
             const modal_id = document.querySelector('#modalDivId');
             const modal = bootstrap.Modal.getInstance(modal_id);
             modal.hide();
-            // getHomeContent();
             location.reload();
         } else {
             Swal.fire({text: 'Select a Vendor', confirmButtonColor: "#e97730"});
         }
     });
 
-    // if (document.getElementById('homeContent')) {
-    //     let naiz_web_vendor_uid = getCookie('naiz_web_vendor_uid');
-    //     if (naiz_web_vendor_uid != '') {
-    //         getHomeContent();
-    //     }
-    // }
+    $(document).on('click', '.on-menu-nav-click', function () {
+        let naiz_web_vendor_uid = getCookie('naiz_web_vendor_uid');
+        if (naiz_web_vendor_uid == '') {
+            window.location.href = "index"
+            return;
+        }
+        let type = $(this).attr('type');
+        if (type == 'index') {
+            setCookie('landing_page', 'yes')
+            window.location.href = "index"
+        } else if (type == 'shop') {
+            window.location.href = "shop"
+        } else if (type == 'products') {
+            window.location.href = "products"
+        } else if (type == 'about_us') {
+            window.location.href = "about_us"
+        } else if (type == 'contact_us') {
+            window.location.href = "contact_us"
+        } else if (type == 'account') {
+            window.location.href = "account"
+        } else if (type == 'cart') {
+            window.location.href = "cart"
+        }
+    });
+
+    if (document.getElementById('menuNavDiv')) {
+        let naiz_web_vendor_uid = getCookie('naiz_web_vendor_uid');
+        if (naiz_web_vendor_uid == '') {
+            window.location.href = "index"
+            return;
+        }
+    }
 
     if (document.getElementById('landingPage')) {
         var myModal = new bootstrap.Modal(document.getElementById('modalDivId'), {
@@ -1014,6 +1039,7 @@ $(document).ready(function () {
         modal.hide();
         let naiz_web_vendor_uid = getCookie('naiz_web_vendor_uid');
         if (naiz_web_vendor_uid == '') {
+            setCookie('landing_page', 'no')
             var myModal = new bootstrap.Modal(document.getElementById('modalDivId'), {
                 backdrop: 'static',
                 keyboard: false
@@ -1874,20 +1900,6 @@ function prdtDetailPriceOfferPrice(price, offer_price) {
         $('.product-details-price').html('<span class="new-price">₹' + price + '</span>')
     }
 }
-
-// function getHomeContent() {
-//     $.ajax({
-//         type: "GET",
-//         url: "includes/templates/home_content.php",
-//         cache: true,
-// beforeSend: function () {
-//     $('#homeContent').html('')
-// },
-// success: function (html) {
-//     $('#homeContent').html(html)
-// }
-// })
-// }
 
 function getColorImage() {
     var color_id = $('.prdt-color-select.active').attr('color-id');
