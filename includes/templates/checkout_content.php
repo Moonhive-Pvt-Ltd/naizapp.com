@@ -63,6 +63,9 @@ if ($user_uid) {
                     <input type="hidden" value="<?php echo $subtotal; ?>" name="total_cost">
                     <input type="hidden" name="vendor_uid" value="<?php echo $vendor_uid; ?>">
                     <input type="hidden" name="uid" value="<?php echo $user_uid; ?>">
+                    <input type="hidden"
+                           value="<?php echo (isset($_COOKIE['cart_id_array']) && ($_COOKIE['cart_id_array'])) ? htmlspecialchars($_COOKIE['cart_id_array']) : null ?>"
+                           name="cart_id_array">
                     <input type="submit" value="Apply Coupon" id="applyCouponBtn">
                 </form>
             </div>

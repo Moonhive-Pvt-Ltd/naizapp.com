@@ -1232,13 +1232,14 @@ class API extends REST
         $vendor_uid = isset($this->_request['vendor_uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['vendor_uid']) : null;
         $promo_code = isset($this->_request['promo_code']) ? mysqli_real_escape_string($this->mysqli, $this->_request['promo_code']) : null;
         $total_cost = isset($this->_request['total_cost']) ? mysqli_real_escape_string($this->mysqli, $this->_request['total_cost']) : null;
+        $cart_id_array_val = isset($this->_request['cart_id_array']) ? $this->_request['cart_id_array'] : null;
 
         $user_id = $this->db_user->isValidUserId($uid);
         if ($user_id) {
             $vendor_id = $this->db_user->isValidVendorId($vendor_uid);
             if ($vendor_id) {
                 $current_date = date('Y-m-d');
-                $promo_code_check = mysqli_query($this->mysqli, "SELECT SUM(CASE WHEN (table1.warranty_price > 0
+                $promo_code_check_query = "SELECT SUM(CASE WHEN (table1.warranty_price > 0
                                                                                AND table1.warranty_price IS NOT NULL) 
                                                                                THEN (table1.warranty_price  * table1.count)
                                                                                ELSE (table1.price  * table1.count) END) AS display_price_val,
@@ -1289,8 +1290,20 @@ class API extends REST
                                                                         WHERE cart.user_id = '$user_id'
                                                                         AND cart.vendor_id = '$vendor_id'
                                                                         AND (promo_code.flat_rate IS NOT NULL 
-                                                                        OR promo_code.flat_rate_percent IS NOT NULL)
-                                                                        GROUP BY cart.id) AS table1");
+                                                                        OR promo_code.flat_rate_percent IS NOT NULL)";
+
+                if ($cart_id_array_val != null) {
+                    $cart_id_array = json_decode($cart_id_array_val, true);
+                    if (count($cart_id_array) > 0) {
+                        $cart_id_arr = implode(",", $cart_id_array);
+                        $promo_code_check_query .= " AND cart.id IN ($cart_id_arr)";
+                    }
+                }
+
+                $promo_code_check_query .= " GROUP BY cart.id) AS table1";
+
+                $promo_code_check = mysqli_query($this->mysqli, $promo_code_check_query);
+
                 if (mysqli_num_rows($promo_code_check)) {
                     $rate = 0;
                     $row = mysqli_fetch_array($promo_code_check);
