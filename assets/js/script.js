@@ -1563,6 +1563,53 @@ $(document).ready(function () {
         }
     });
 
+    $(document).on('submit', '#contactUsForm', function (e) {
+        e.preventDefault();
+        let btn = $('#contactUsForm .contact-us-form-btn');
+        var name = $('#name').val();
+        var email = $('#email').val();
+        var subject = $('#subject').val();
+        var phone = $('#phone').val();
+        var message = $('#message').val();
+        $(btn).prop('disabled', true);
+        $(btn).html('Please Wait');
+        var ajaxurl = 'includes/functions.php',
+            data = {
+                'action': 'sendContactUs',
+                'name': name,
+                'email': email,
+                'subject': subject,
+                'phone': phone,
+                'message': message,
+            };
+        $.post(ajaxurl, data, function (response) {
+            console.log('response')
+            console.log(response)
+            $(btn).prop('disabled', false);
+            $(btn).html('Send Message');
+            if (response == 1) {
+                Swal.fire({
+                    title: '<div class="mt-4"><h5>Send Successfully</h5></div>',
+                    showCancelButton: false,
+                    width: 500,
+                    padding: 8,
+                    confirmButtonText: `Ok`,
+                    confirmButtonColor: "#e97730",
+                }).then((result) => {
+                    if (result.value) {
+                        $('#name').val('');
+                        $('#email').val('');
+                        $('#subject').val('');
+                        $('#phone').val('');
+                        $('#message').val('');
+                    }
+                });
+            } else {
+                Swal.fire({text: response, confirmButtonColor: "#e97730"});
+            }
+        })
+    });
+
 });
 
 function setCookie(cookie, value) {

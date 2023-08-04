@@ -23,8 +23,8 @@
             <div class="col-lg-4 col-md-4 col-sm-6 col-12">
                 <div class="contact-us-info-wrap mb-30" data-aos="fade-up" data-aos-delay="400">
                     <div class="contact-us-info">
-                        <p> Haridas Mandiram,  <br/>
-                            Perror, Thattarkonam,  <br/>
+                        <p> Haridas Mandiram, <br/>
+                            Perror, Thattarkonam, <br/>
                             Kollam, Kerala - 691005</p>
                         <span>Call us: 8078803595 or 9895958845</span>
                     </div>
@@ -62,19 +62,19 @@
         </div>
         <div class="contact-form-wrap" data-aos="fade-up" data-aos-delay="200">
             <!--            <form class="contact-form-style" id="contact-form" action="assets/php/mail.php" method="post">-->
-            <form class="contact-form-style" method="post">
+            <form class="contact-form-style" id="contactUsForm" method="post" autocomplete="off">
                 <div class="row">
                     <div class="col-lg-4">
-                        <input name="name" type="text" placeholder="Name*">
-                        <input name="email" type="email" placeholder="Email*">
-                        <input name="subject" type="text" placeholder="Subject*">
-                        <input name="phone" type="text" placeholder="Phone*">
+                        <input name="name" id="name" type="text" placeholder="Name*" required>
+                        <input name="email" id="email" type="email" placeholder="Email*" required>
+                        <input name="subject" id="subject" type="text" placeholder="Subject*" required>
+                        <input name="phone" id="phone" type="text" placeholder="Phone*" required>
                     </div>
                     <div class="col-lg-8">
-                        <textarea name="message" placeholder="Message"></textarea>
+                        <textarea name="message" id="message" placeholder="Message*" required></textarea>
                     </div>
                     <div class="col-lg-12 col-md-12 col-12 contact-us-btn btn-hover">
-                        <button class="submit" type="submit">Send Message</button>
+                        <button type="submit"  class="submit contact-us-form-btn">Send Message</button>
                     </div>
                 </div>
             </form>

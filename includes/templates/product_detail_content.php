@@ -65,7 +65,8 @@ if ($prdt_detail != null) {
                         <h2><?php echo $prdt_detail['name']; ?></h2>
                         <div id="prdtSizeDetailPriceContent">
                         </div>
-                        <div class="product-details-review">
+                        <h6>Rating / Review</h6>
+                        <div class="product-details-review mt-3">
                             <div class="product-rating">
                                 <?php for ($i = 1; $i <= 5; $i++) {
                                     if ($i <= $prdt_detail['product_rating']) { ?>
