@@ -48,7 +48,7 @@ if ($result['status'] == 'Success') { ?>
                                                                 <div class="cart-color-div margin-right-7px"
                                                                      style="background-color: <?php echo $row['color_code']; ?>"></div>
                                                             <?php }
-                                                            echo $row['name'] . ' - ' . $row['size'] . ' - ' . $row['error']; ?>
+                                                            echo $row['name'] . ' - ' . $row['size'] . ($row['is_warranty'] ? ' - ' . $row['warranty'] . ' - ' : ' - ') . $row['error']; ?>
                                                         </h6>
                                                     </td>
                                                 </tr>

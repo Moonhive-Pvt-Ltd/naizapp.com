@@ -73,9 +73,11 @@
     </td>
     <td class="product-remove">
         <i class="ti-trash delete-cart-item cursor-pointer"></i>
-        <a href="product_details?id=<?php echo $row['product_uid'] ?>&cart_id=<?php echo $row['cart_id']; ?>">
-            <i class="ti-eye view-cart-item cursor-pointer p-3"></i>
-        </a>
+        <?php if ($row['error'] == '') { ?>
+            <a href="product_details?id=<?php echo $row['product_uid'] ?>&cart_id=<?php echo $row['cart_id']; ?>">
+                <i class="ti-eye view-cart-item cursor-pointer p-3"></i>
+            </a>
+        <?php } ?>
     </td>
 </tr>
 
