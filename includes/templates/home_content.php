@@ -126,10 +126,12 @@ if ($home_result['status'] == 'Success') {
                                     <div class="product-content">
                                         <h3><a><?php echo $launches_row['name']; ?></a></h3>
                                         <div class="product-price">
-                                            <?php if ($launches_row['old_price']) { ?>
-                                                <span class="old-price">₹<?php echo $launches_row['old_price']; ?></span>
+                                            <?php if ($launches_row['offer_price'] > 0) { ?>
+                                                <span class="old-price">₹<?php echo $launches_row['price']; ?></span>
+                                                <span class="new-price">₹<?php echo $launches_row['offer_price']; ?></span>
+                                            <?php } else { ?>
+                                                <span class="new-price">₹<?php echo $launches_row['price']; ?></span>
                                             <?php } ?>
-                                            <span class="new-price">₹<?php echo $launches_row['display_price']; ?></span>
                                         </div>
                                     </div>
                                 </div>
@@ -159,10 +161,12 @@ if ($home_result['status'] == 'Success') {
                                     <div class="product-content">
                                         <h3><a><?php echo $picks_row['name']; ?></a></h3>
                                         <div class="product-price">
-                                            <?php if ($picks_row['old_price']) { ?>
-                                                <span class="old-price">₹<?php echo $picks_row['old_price']; ?></span>
+                                            <?php if ($picks_row['offer_price'] > 0) { ?>
+                                                <span class="old-price">₹<?php echo $picks_row['price']; ?></span>
+                                                <span class="new-price">₹<?php echo $picks_row['offer_price']; ?></span>
+                                            <?php } else { ?>
+                                                <span class="new-price">₹<?php echo $picks_row['price']; ?></span>
                                             <?php } ?>
-                                            <span class="new-price">₹<?php echo $picks_row['display_price']; ?></span>
                                         </div>
                                     </div>
                                 </div>
@@ -192,12 +196,12 @@ if ($home_result['status'] == 'Success') {
                                     <div class="product-content">
                                         <h3><a><?php echo $viewed_row['name']; ?></a></h3>
                                         <div class="product-price">
-                                            <?php if ($viewed_row['old_price']) { ?>
-                                                <span
-                                                        class="old-price">₹<?php echo $viewed_row['old_price']; ?></span>
+                                            <?php if ($viewed_row['offer_price'] > 0) { ?>
+                                                <span class="old-price">₹<?php echo $viewed_row['price']; ?></span>
+                                                <span class="new-price">₹<?php echo $viewed_row['offer_price']; ?></span>
+                                            <?php } else { ?>
+                                                <span class="new-price">₹<?php echo $viewed_row['price']; ?></span>
                                             <?php } ?>
-                                            <span
-                                                    class="new-price">₹<?php echo $viewed_row['display_price']; ?></span>
                                         </div>
                                     </div>
                                 </div>
@@ -228,10 +232,12 @@ if ($home_result['status'] == 'Success') {
                                     <div class="product-content">
                                         <h3><a><?php echo $popular_row['name']; ?></a></h3>
                                         <div class="product-price">
-                                            <?php if ($popular_row['old_price']) { ?>
-                                                <span class="old-price">₹<?php echo $popular_row['old_price']; ?></span>
+                                            <?php if ($popular_row['offer_price'] > 0) { ?>
+                                                <span class="old-price">₹<?php echo $popular_row['price']; ?></span>
+                                                <span class="new-price">₹<?php echo $popular_row['offer_price']; ?></span>
+                                            <?php } else { ?>
+                                                <span class="new-price">₹<?php echo $popular_row['price']; ?></span>
                                             <?php } ?>
-                                            <span class="new-price">₹<?php echo $popular_row['display_price']; ?></span>
                                         </div>
                                     </div>
                                 </div>
@@ -298,10 +304,12 @@ if ($home_result['status'] == 'Success') {
                                 <div class="product-content">
                                     <h3><a><?php echo $rated_row['name']; ?></a></h3>
                                     <div class="product-price">
-                                        <?php if ($rated_row['old_price']) { ?>
-                                            <span class="old-price">₹<?php echo $rated_row['old_price']; ?></span>
+                                        <?php if ($rated_row['offer_price'] > 0) { ?>
+                                            <span class="old-price">₹<?php echo $rated_row['price']; ?></span>
+                                            <span class="new-price">₹<?php echo $rated_row['offer_price']; ?></span>
+                                        <?php } else { ?>
+                                            <span class="new-price">₹<?php echo $rated_row['price']; ?></span>
                                         <?php } ?>
-                                        <span class="new-price">₹<?php echo $rated_row['display_price']; ?></span>
                                     </div>
                                 </div>
                             </div>
