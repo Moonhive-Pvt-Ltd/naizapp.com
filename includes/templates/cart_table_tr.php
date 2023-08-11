@@ -12,14 +12,17 @@
     color-id="<?php echo $row['color_id']; ?>"
     count="<?php echo $row['count']; ?>"
     display-price="<?php echo $row['display_price']; ?>">
-    <td class="product-thumbnail">
-        <a href="#">
+    <td class="product-thumbnail cart-checkbox-image">
+        <div class="cart-checkbox-div">
+            <input class="cart-checkbox-input cursor-pointer" type="checkbox">
+        </div>
+        <a>
             <img src="<?php echo $row['image']; ?>" alt=""/>
         </a>
     </td>
     <td class="product-name">
         <h6>
-            <a href="#">
+            <a>
                 <?php echo $row['name']; ?>
             </a>
             <div class="d-flex align-items-center">
@@ -70,6 +73,11 @@
     </td>
     <td class="product-remove">
         <i class="ti-trash delete-cart-item cursor-pointer"></i>
+        <?php if ($row['error'] == '') { ?>
+            <a href="product_details?id=<?php echo $row['product_uid'] ?>&cart_id=<?php echo $row['cart_id']; ?>">
+                <i class="ti-eye view-cart-item cursor-pointer p-3"></i>
+            </a>
+        <?php } ?>
     </td>
 </tr>
 

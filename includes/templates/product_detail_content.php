@@ -1,11 +1,13 @@
 <?php
 $vendor_uid = isset($_COOKIE['naiz_web_vendor_uid']) ? $_COOKIE['naiz_web_vendor_uid'] : '';
 $product_uid = isset($_GET['id']) ? $_GET['id'] : '';
+$cart_id = isset($_GET['cart_id']) ? $_GET['cart_id'] : '';
 
 $post = [
     'product_uid' => $product_uid,
     'vendor_uid' => $vendor_uid,
 ];
+
 $url = BASE_URL . "get_product_details";
 $result = getApiData($url, $post);
 $prdt_detail = null;
@@ -15,15 +17,45 @@ if ($result['status'] == 'Success') {
 }
 
 if ($prdt_detail != null) {
+
+    $cart_vendor_id = '';
+    $cart_product_size_id = '';
+    $cart_color_id = '';
+    $cart_warranty_id = '';
+    $cart_product_design_id = '';
+    $cart_count_value = '';
+    $cart_query = mysqli_query($mysqli, "SELECT * FROM cart WHERE id = '$cart_id'");
+    if (mysqli_num_rows($cart_query)) {
+        $cart_row = mysqli_fetch_array($cart_query);
+        $cart_vendor_id = $cart_row['vendor_id'];
+        $cart_product_size_id = $cart_row['product_size_id'];
+        $cart_color_id = $cart_row['color_id'];
+        $cart_warranty_id = $cart_row['warranty_id'];
+        $cart_product_design_id = $cart_row['product_design_id'];
+        $cart_count_value = $cart_row['count'];
+    }
+
+    $a = 0;
+    if ($cart_product_size_id == '') {
+        $a = 0;
+    } else {
+        foreach ($prdt_detail['product_size'] as $key => $val) {
+            if ($val['id'] == $cart_product_size_id) {
+                $a = $key;
+            }
+        }
+    }
+
     $product_image = $prdt_detail['product_image'];
     $product_design = $prdt_detail['product_design_image'];
     $product_size_list = $prdt_detail['product_size'];
-    $product_size = $prdt_detail['product_size'][0];
+    $product_size = $prdt_detail['product_size'][$a];
     ?>
     <input type="hidden" value="<?php echo $prdt_detail['product_id']; ?>" id="productId">
     <input type="hidden" value="<?php echo $prdt_detail['vendor_id']; ?>" id="vendorId">
     <input type="hidden" value="<?php echo $vendor_uid; ?>" id="vendorUId">
     <input type="hidden" value="<?php echo $product_uid; ?>" id="productUid">
+    <input type="hidden" value="<?php echo $cart_id; ?>" id="cartId">
     <div class="product-details-area pb-50 pt-100">
         <div class="container">
             <div class="row">
@@ -33,7 +65,8 @@ if ($prdt_detail != null) {
                         <h2><?php echo $prdt_detail['name']; ?></h2>
                         <div id="prdtSizeDetailPriceContent">
                         </div>
-                        <div class="product-details-review">
+                        <h6>Rating / Review</h6>
+                        <div class="product-details-review mt-3">
                             <div class="product-rating">
                                 <?php for ($i = 1; $i <= 5; $i++) {
                                     if ($i <= $prdt_detail['product_rating']) { ?>
@@ -52,7 +85,12 @@ if ($prdt_detail != null) {
                                         data-minimum-results-for-search="Infinity">
                                     <?php $j = 0;
                                     foreach ($product_design AS $prdt_design) { ?>
-                                        <option value="<?php echo $prdt_design['id']; ?>"><?php echo $prdt_design['name']; ?></option>
+                                        <option value="<?php echo $prdt_design['id']; ?>"
+                                            <?php if ($cart_product_design_id != '') {
+                                                if ($cart_product_design_id == $prdt_design['id']) {
+                                                    echo "selected";
+                                                }
+                                            } ?>><?php echo $prdt_design['name']; ?></option>
                                         <?php $j++;
                                     } ?>
                                 </select>
@@ -66,7 +104,12 @@ if ($prdt_detail != null) {
                                     data-minimum-results-for-search="Infinity">
                                 <?php $i = 0;
                                 foreach ($product_size_list AS $prdt_size) { ?>
-                                    <option value="<?php echo $prdt_size['id']; ?>"><?php echo $prdt_size['size']; ?></option>
+                                    <option value="<?php echo $prdt_size['id']; ?>"
+                                        <?php if ($cart_product_size_id != '') {
+                                            if ($cart_product_size_id == $prdt_size['id']) {
+                                                echo "selected";
+                                            }
+                                        } ?>><?php echo $prdt_size['size']; ?></option>
                                     <?php $i++;
                                 } ?>
                             </select>

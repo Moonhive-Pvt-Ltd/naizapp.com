@@ -185,30 +185,53 @@ class API extends REST
         if ($vendor_id) {
             //get new launches list
             $new_launches = mysqli_query($this->mysqli, "SELECT product.*, 
-                                                                       MIN(product_size.price) AS price,
-                                                                       MIN(CASE WHEN product_size.offer_price != 0 THEN offer_price END) AS offer_price,
-                                                                       MIN(CASE WHEN product_size.offer_price != 0 THEN price END) AS old_price,
                                                                        product_image.image, 
                                                                        top_product.type,
-                                                                       GROUP_CONCAT(DISTINCT category.name SEPARATOR ', ') AS category 
+                                                                       CASE WHEN product_price_tbl.warranty_price IS NOT NULL THEN product_price_tbl.warranty_price ELSE product_price_tbl.price END AS price,
+                                                                       CASE WHEN product_price_tbl.warranty_price IS NOT NULL THEN product_price_tbl.warranty_offer_price ELSE product_price_tbl.offer_price END AS offer_price,
+                                                                       GROUP_CONCAT(DISTINCT category.name SEPARATOR ', ') AS category
                                                                 FROM product 
-                                                                INNER JOIN product_size 
-                                                                ON product_size.product_id = product.id
+                                                                INNER JOIN (
+                                                                SELECT row_number()over(order by compare_price) auto_id,
+                                                                       product_size.product_id AS prdt_id,
+                                                                       product_size.price,
+                                                                       product_size.offer_price,
+                                                                       product_size_color.id AS product_size_color_id, 
+                                                                       product_size_color_warranty.id AS product_size_warranty_id, 
+                                                                       product_size_color_warranty.price AS warranty_price,
+                                                                       product_size_color_warranty.offer_price AS warranty_offer_price,
+                                                                       vendor_stock.vendor_id,
+                                                                       (CASE 
+                                                                        WHEN product_size_color_warranty.price IS NULL
+                                                                        THEN (CASE WHEN product_size.offer_price != 0 
+                                                                        THEN product_size.offer_price 
+                                                                        ELSE product_size.price END)
+                                                                        ELSE (CASE WHEN product_size_color_warranty.offer_price != 0 
+                                                                        THEN product_size_color_warranty.offer_price 
+                                                                        ELSE product_size_color_warranty.price END)
+                                                                        END) AS compare_price
+                                                                FROM product_size
+                                                                INNER JOIN vendor_stock
+                                                                ON vendor_stock.product_size_id = product_size.id
+                                                                LEFT JOIN product_size_color
+                                                                ON product_size_color.product_size_id = product_size.id
+                                                                LEFT JOIN product_size_color_warranty
+                                                                ON product_size_color_warranty.product_size_color_id = product_size_color.id 
+                                                                WHERE product_size.status = 'active' 
+                                                                AND vendor_stock.vendor_id = '$vendor_id' 
+                                                                ORDER BY auto_id DESC) AS product_price_tbl
+                                                                ON product_price_tbl.prdt_id = product.id
                                                                 INNER JOIN product_image 
                                                                 ON product_image.product_id = product.id 
                                                                 INNER JOIN top_product
                                                                 ON top_product.product_id = product.id
-                                                                INNER JOIN vendor_stock
-                                                                ON vendor_stock.product_size_id = product_size.id
                                                                 LEFT JOIN product_category
                                                                 ON product_category.product_id = product.id
                                                                 LEFT JOIN category
                                                                 ON category.id = product_category.category_id
                                                                 AND category.status = 'active'
                                                                 WHERE product.status = 'active'
-                                                                AND product_size.status = 'active'
                                                                 AND top_product.type = 'launches'
-                                                                AND vendor_stock.vendor_id = '$vendor_id'
                                                                 GROUP BY product.id 
                                                                 ORDER BY top_product.`timestamp` ASC
                                                                 LIMIT 8");
@@ -220,19 +243,10 @@ class API extends REST
                         $new_launches_rlt['uid'] = $row['uid'];
                         $new_launches_rlt['name'] = $row['name'];
                         $new_launches_rlt['type'] = $row['type'];
-                        if ($row['offer_price'] > 0) {
-                            if ($row['offer_price'] < $row['price']) {
-                                $new_launches_rlt['old_price'] = $row['old_price'];
-                                $new_launches_rlt['display_price'] = $row['offer_price'];
-                            } else {
-                                $new_launches_rlt['old_price'] = '';
-                                $new_launches_rlt['display_price'] = $row['price'];
-                            }
-                        } else {
-                            $new_launches_rlt['old_price'] = '';
-                            $new_launches_rlt['display_price'] = $row['price'];
-                        }
                         $new_launches_rlt['image'] = self::URL . 'vendor_data/product/' . $row['image'];
+                        $new_launches_rlt['offer_price'] = $row['offer_price'];
+                        $new_launches_rlt['price'] = $row['price'];
+
                         array_push($new_launches_data, $new_launches_rlt);
                     }
                 }
@@ -241,33 +255,56 @@ class API extends REST
 
             //get top picks list
             $top_picks = mysqli_query($this->mysqli, "SELECT product.*, 
-                                                                    MIN(product_size.price) AS price,
-                                                                    MIN(CASE WHEN product_size.offer_price != 0 THEN offer_price END) AS offer_price,
-                                                                    MIN(CASE WHEN product_size.offer_price != 0 THEN price END) AS old_price,
-                                                                    product_image.image,
-                                                                    top_product.type,
-                                                                    GROUP_CONCAT(DISTINCT category.name SEPARATOR ', ') AS category  
-                                                             FROM product 
-                                                             INNER JOIN product_size 
-                                                             ON product_size.product_id = product.id 
-                                                             INNER JOIN product_image 
-                                                             ON product_image.product_id = product.id
-                                                             INNER JOIN top_product
-                                                             ON top_product.product_id = product.id
-                                                             INNER JOIN vendor_stock
-                                                             ON vendor_stock.product_size_id = product_size.id
-                                                             LEFT JOIN product_category
-                                                             ON product_category.product_id = product.id
-                                                             LEFT JOIN category
-                                                             ON category.id = product_category.category_id
-                                                             AND category.status = 'active'
-                                                             WHERE product.status = 'active'
-                                                             AND product_size.status = 'active'
-                                                             AND top_product.type = 'picks'
-                                                             AND vendor_stock.vendor_id = '$vendor_id'
-                                                             GROUP BY product.id 
-                                                             ORDER BY top_product.`timestamp` ASC
-                                                             LIMIT 8");
+                                                                       product_image.image, 
+                                                                       top_product.type,
+                                                                       CASE WHEN product_price_tbl.warranty_price IS NOT NULL THEN product_price_tbl.warranty_price ELSE product_price_tbl.price END AS price,
+                                                                       CASE WHEN product_price_tbl.warranty_price IS NOT NULL THEN product_price_tbl.warranty_offer_price ELSE product_price_tbl.offer_price END AS offer_price,
+                                                                       GROUP_CONCAT(DISTINCT category.name SEPARATOR ', ') AS category
+                                                                FROM product 
+                                                                INNER JOIN (
+                                                                SELECT row_number()over(order by compare_price) auto_id,
+                                                                       product_size.product_id AS prdt_id,
+                                                                       product_size.price,
+                                                                       product_size.offer_price,
+                                                                       product_size_color.id AS product_size_color_id, 
+                                                                       product_size_color_warranty.id AS product_size_warranty_id, 
+                                                                       product_size_color_warranty.price AS warranty_price,
+                                                                       product_size_color_warranty.offer_price AS warranty_offer_price,
+                                                                       vendor_stock.vendor_id,
+                                                                       (CASE 
+                                                                        WHEN product_size_color_warranty.price IS NULL
+                                                                        THEN (CASE WHEN product_size.offer_price != 0 
+                                                                        THEN product_size.offer_price 
+                                                                        ELSE product_size.price END)
+                                                                        ELSE (CASE WHEN product_size_color_warranty.offer_price != 0 
+                                                                        THEN product_size_color_warranty.offer_price 
+                                                                        ELSE product_size_color_warranty.price END)
+                                                                        END) AS compare_price
+                                                                FROM product_size
+                                                                INNER JOIN vendor_stock
+                                                                ON vendor_stock.product_size_id = product_size.id
+                                                                LEFT JOIN product_size_color
+                                                                ON product_size_color.product_size_id = product_size.id
+                                                                LEFT JOIN product_size_color_warranty
+                                                                ON product_size_color_warranty.product_size_color_id = product_size_color.id 
+                                                                WHERE product_size.status = 'active' 
+                                                                AND vendor_stock.vendor_id = '$vendor_id' 
+                                                                ORDER BY auto_id DESC) AS product_price_tbl
+                                                                ON product_price_tbl.prdt_id = product.id
+                                                                INNER JOIN product_image 
+                                                                ON product_image.product_id = product.id 
+                                                                INNER JOIN top_product
+                                                                ON top_product.product_id = product.id
+                                                                LEFT JOIN product_category
+                                                                ON product_category.product_id = product.id
+                                                                LEFT JOIN category
+                                                                ON category.id = product_category.category_id
+                                                                AND category.status = 'active'
+                                                                WHERE product.status = 'active'
+                                                                AND top_product.type = 'picks'
+                                                                GROUP BY product.id 
+                                                                ORDER BY top_product.`timestamp` ASC
+                                                                LIMIT 8");
             $top_picks_data = array();
             if (mysqli_num_rows($top_picks)) {
                 while ($row1 = $top_picks->fetch_assoc()) {
@@ -275,19 +312,10 @@ class API extends REST
                         $top_picks_rlt['uid'] = $row1['uid'];
                         $top_picks_rlt['name'] = $row1['name'];
                         $top_picks_rlt['type'] = $row1['type'];
-                        if ($row1['offer_price'] > 0) {
-                            if ($row1['offer_price'] < $row1['price']) {
-                                $top_picks_rlt['old_price'] = $row1['old_price'];
-                                $top_picks_rlt['display_price'] = $row1['offer_price'];
-                            } else {
-                                $top_picks_rlt['old_price'] = '';
-                                $top_picks_rlt['display_price'] = $row1['price'];
-                            }
-                        } else {
-                            $top_picks_rlt['old_price'] = '';
-                            $top_picks_rlt['display_price'] = $row1['price'];
-                        }
                         $top_picks_rlt['image'] = self::URL . 'vendor_data/product/' . $row1['image'];
+                        $top_picks_rlt['offer_price'] = $row1['offer_price'];
+                        $top_picks_rlt['price'] = $row1['price'];
+
                         array_push($top_picks_data, $top_picks_rlt);
                     }
                 }
@@ -296,33 +324,56 @@ class API extends REST
 
             //get most viewed list
             $most_viewed = mysqli_query($this->mysqli, "SELECT product.*, 
-                                                                      MIN(product_size.price) AS price,
-                                                                      MIN(CASE WHEN product_size.offer_price != 0 THEN offer_price END) AS offer_price,
-                                                                      MIN(CASE WHEN product_size.offer_price != 0 THEN price END) AS old_price,
-                                                                      product_image.image,
-                                                                      top_product.type,
-                                                                      GROUP_CONCAT(DISTINCT category.name SEPARATOR ', ') AS category  
-                                                               FROM product 
-                                                               INNER JOIN product_size 
-                                                               ON product_size.product_id = product.id 
-                                                               INNER JOIN product_image 
-                                                               ON product_image.product_id = product.id
-                                                               INNER JOIN top_product
-                                                               ON top_product.product_id = product.id
-                                                               INNER JOIN vendor_stock
-                                                               ON vendor_stock.product_size_id = product_size.id
-                                                               LEFT JOIN product_category
-                                                               ON product_category.product_id = product.id
-                                                               LEFT JOIN category
-                                                               ON category.id = product_category.category_id
-                                                               AND category.status = 'active'
-                                                               WHERE product.status = 'active'
-                                                               AND product_size.status = 'active'
-                                                               AND top_product.type = 'viewed'
-                                                               AND vendor_stock.vendor_id = '$vendor_id'
-                                                               GROUP BY product.id 
-                                                               ORDER BY top_product.`timestamp` ASC
-                                                               LIMIT 8");
+                                                                       product_image.image, 
+                                                                       top_product.type,
+                                                                       CASE WHEN product_price_tbl.warranty_price IS NOT NULL THEN product_price_tbl.warranty_price ELSE product_price_tbl.price END AS price,
+                                                                       CASE WHEN product_price_tbl.warranty_price IS NOT NULL THEN product_price_tbl.warranty_offer_price ELSE product_price_tbl.offer_price END AS offer_price,
+                                                                       GROUP_CONCAT(DISTINCT category.name SEPARATOR ', ') AS category
+                                                                FROM product 
+                                                                INNER JOIN (
+                                                                SELECT row_number()over(order by compare_price) auto_id,
+                                                                       product_size.product_id AS prdt_id,
+                                                                       product_size.price,
+                                                                       product_size.offer_price,
+                                                                       product_size_color.id AS product_size_color_id, 
+                                                                       product_size_color_warranty.id AS product_size_warranty_id, 
+                                                                       product_size_color_warranty.price AS warranty_price,
+                                                                       product_size_color_warranty.offer_price AS warranty_offer_price,
+                                                                       vendor_stock.vendor_id,
+                                                                       (CASE 
+                                                                        WHEN product_size_color_warranty.price IS NULL
+                                                                        THEN (CASE WHEN product_size.offer_price != 0 
+                                                                        THEN product_size.offer_price 
+                                                                        ELSE product_size.price END)
+                                                                        ELSE (CASE WHEN product_size_color_warranty.offer_price != 0 
+                                                                        THEN product_size_color_warranty.offer_price 
+                                                                        ELSE product_size_color_warranty.price END)
+                                                                        END) AS compare_price
+                                                                FROM product_size
+                                                                INNER JOIN vendor_stock
+                                                                ON vendor_stock.product_size_id = product_size.id
+                                                                LEFT JOIN product_size_color
+                                                                ON product_size_color.product_size_id = product_size.id
+                                                                LEFT JOIN product_size_color_warranty
+                                                                ON product_size_color_warranty.product_size_color_id = product_size_color.id 
+                                                                WHERE product_size.status = 'active' 
+                                                                AND vendor_stock.vendor_id = '$vendor_id' 
+                                                                ORDER BY auto_id DESC) AS product_price_tbl
+                                                                ON product_price_tbl.prdt_id = product.id
+                                                                INNER JOIN product_image 
+                                                                ON product_image.product_id = product.id 
+                                                                INNER JOIN top_product
+                                                                ON top_product.product_id = product.id
+                                                                LEFT JOIN product_category
+                                                                ON product_category.product_id = product.id
+                                                                LEFT JOIN category
+                                                                ON category.id = product_category.category_id
+                                                                AND category.status = 'active'
+                                                                WHERE product.status = 'active'
+                                                                AND top_product.type = 'viewed'
+                                                                GROUP BY product.id 
+                                                                ORDER BY top_product.`timestamp` ASC
+                                                                LIMIT 8");
             $most_viewed_data = array();
             if (mysqli_num_rows($most_viewed)) {
                 while ($row2 = $most_viewed->fetch_assoc()) {
@@ -330,19 +381,10 @@ class API extends REST
                         $most_viewed_rlt['uid'] = $row2['uid'];
                         $most_viewed_rlt['name'] = $row2['name'];
                         $most_viewed_rlt['type'] = $row2['type'];
-                        if ($row2['offer_price'] > 0) {
-                            if ($row2['offer_price'] < $row2['price']) {
-                                $most_viewed_rlt['old_price'] = $row2['old_price'];
-                                $most_viewed_rlt['display_price'] = $row2['offer_price'];
-                            } else {
-                                $most_viewed_rlt['old_price'] = '';
-                                $most_viewed_rlt['display_price'] = $row2['price'];
-                            }
-                        } else {
-                            $most_viewed_rlt['old_price'] = '';
-                            $most_viewed_rlt['display_price'] = $row2['price'];
-                        }
                         $most_viewed_rlt['image'] = self::URL . 'vendor_data/product/' . $row2['image'];
+                        $most_viewed_rlt['offer_price'] = $row2['offer_price'];
+                        $most_viewed_rlt['price'] = $row2['price'];
+
                         array_push($most_viewed_data, $most_viewed_rlt);
                     }
                 }
@@ -351,32 +393,55 @@ class API extends REST
 
             //get most popular list
             $most_popular = mysqli_query($this->mysqli, "SELECT product.*, 
-                                                                       MIN(product_size.price) AS price,
-                                                                       MIN(CASE WHEN product_size.offer_price != 0 THEN offer_price END) AS offer_price,
-                                                                       MIN(CASE WHEN product_size.offer_price != 0 THEN price END) AS old_price,
-                                                                       product_image.image,
+                                                                       product_image.image, 
                                                                        top_product.type,
-                                                                       GROUP_CONCAT(DISTINCT category.name SEPARATOR ', ') AS category  
+                                                                       CASE WHEN product_price_tbl.warranty_price IS NOT NULL THEN product_price_tbl.warranty_price ELSE product_price_tbl.price END AS price,
+                                                                       CASE WHEN product_price_tbl.warranty_price IS NOT NULL THEN product_price_tbl.warranty_offer_price ELSE product_price_tbl.offer_price END AS offer_price,
+                                                                       GROUP_CONCAT(DISTINCT category.name SEPARATOR ', ') AS category
                                                                 FROM product 
-                                                                INNER JOIN product_size 
-                                                                ON product_size.product_id = product.id 
-                                                                INNER JOIN product_image 
-                                                                ON product_image.product_id = product.id
-                                                                INNER JOIN top_product
-                                                                ON top_product.product_id = product.id
+                                                                INNER JOIN (
+                                                                SELECT row_number()over(order by compare_price) auto_id,
+                                                                       product_size.product_id AS prdt_id,
+                                                                       product_size.price,
+                                                                       product_size.offer_price,
+                                                                       product_size_color.id AS product_size_color_id, 
+                                                                       product_size_color_warranty.id AS product_size_warranty_id, 
+                                                                       product_size_color_warranty.price AS warranty_price,
+                                                                       product_size_color_warranty.offer_price AS warranty_offer_price,
+                                                                       vendor_stock.vendor_id,
+                                                                       (CASE 
+                                                                        WHEN product_size_color_warranty.price IS NULL
+                                                                        THEN (CASE WHEN product_size.offer_price != 0 
+                                                                        THEN product_size.offer_price 
+                                                                        ELSE product_size.price END)
+                                                                        ELSE (CASE WHEN product_size_color_warranty.offer_price != 0 
+                                                                        THEN product_size_color_warranty.offer_price 
+                                                                        ELSE product_size_color_warranty.price END)
+                                                                        END) AS compare_price
+                                                                FROM product_size
                                                                 INNER JOIN vendor_stock
                                                                 ON vendor_stock.product_size_id = product_size.id
+                                                                LEFT JOIN product_size_color
+                                                                ON product_size_color.product_size_id = product_size.id
+                                                                LEFT JOIN product_size_color_warranty
+                                                                ON product_size_color_warranty.product_size_color_id = product_size_color.id 
+                                                                WHERE product_size.status = 'active' 
+                                                                AND vendor_stock.vendor_id = '$vendor_id' 
+                                                                ORDER BY auto_id DESC) AS product_price_tbl
+                                                                ON product_price_tbl.prdt_id = product.id
+                                                                INNER JOIN product_image 
+                                                                ON product_image.product_id = product.id 
+                                                                INNER JOIN top_product
+                                                                ON top_product.product_id = product.id
                                                                 LEFT JOIN product_category
                                                                 ON product_category.product_id = product.id
                                                                 LEFT JOIN category
                                                                 ON category.id = product_category.category_id
                                                                 AND category.status = 'active'
                                                                 WHERE product.status = 'active'
-                                                                AND product_size.status = 'active'
                                                                 AND top_product.type = 'popular'
-                                                                AND vendor_stock.vendor_id = '$vendor_id'
                                                                 GROUP BY product.id 
-                                                                ORDER BY product.`timestamp` ASC
+                                                                ORDER BY top_product.`timestamp` ASC
                                                                 LIMIT 8");
             $most_popular_data = array();
             if (mysqli_num_rows($most_popular)) {
@@ -385,19 +450,10 @@ class API extends REST
                         $most_popular_rlt['uid'] = $row3['uid'];
                         $most_popular_rlt['name'] = $row3['name'];
                         $most_popular_rlt['type'] = $row3['type'];
-                        if ($row3['offer_price'] > 0) {
-                            if ($row3['offer_price'] < $row3['price']) {
-                                $most_popular_rlt['old_price'] = $row3['old_price'];
-                                $most_popular_rlt['display_price'] = $row3['offer_price'];
-                            } else {
-                                $most_popular_rlt['old_price'] = '';
-                                $most_popular_rlt['display_price'] = $row3['price'];
-                            }
-                        } else {
-                            $most_popular_rlt['old_price'] = '';
-                            $most_popular_rlt['display_price'] = $row3['price'];
-                        }
                         $most_popular_rlt['image'] = self::URL . 'vendor_data/product/' . $row3['image'];
+                        $most_popular_rlt['offer_price'] = $row3['offer_price'];
+                        $most_popular_rlt['price'] = $row3['price'];
+
                         array_push($most_popular_data, $most_popular_rlt);
                     }
                 }
@@ -406,28 +462,52 @@ class API extends REST
 
             //get most rated products
             $most_rated = mysqli_query($this->mysqli, "SELECT AVG(product_review.rating) AS rating,
-                                                                    product_image.image,
-                                                                    MIN(product_size.price) AS price,
-                                                                    MIN(CASE WHEN product_size.offer_price != 0 THEN offer_price END) AS offer_price,
-                                                                    MIN(CASE WHEN product_size.offer_price != 0 THEN price END) AS old_price,
-                                                                    product.*,
-                                                                    GROUP_CONCAT(DISTINCT category.name SEPARATOR ', ') AS category 
+                                                                       product.*, 
+                                                                       product_image.image, 
+                                                                       CASE WHEN product_price_tbl.warranty_price IS NOT NULL THEN product_price_tbl.warranty_price ELSE product_price_tbl.price END AS price,
+                                                                       CASE WHEN product_price_tbl.warranty_price IS NOT NULL THEN product_price_tbl.warranty_offer_price ELSE product_price_tbl.offer_price END AS offer_price,
+                                                                       GROUP_CONCAT(DISTINCT category.name SEPARATOR ', ') AS category
                                                                 FROM product 
-                                                                INNER JOIN product_review
-                                                                ON product_review.product_id = product.id
-                                                                INNER JOIN product_image
-                                                                ON product_image.product_id = product.id
-                                                                INNER JOIN product_size 
-                                                                ON product_size.product_id = product.id
+                                                                INNER JOIN (
+                                                                SELECT row_number()over(order by compare_price) auto_id,
+                                                                       product_size.product_id AS prdt_id,
+                                                                       product_size.price,
+                                                                       product_size.offer_price,
+                                                                       product_size_color.id AS product_size_color_id, 
+                                                                       product_size_color_warranty.id AS product_size_warranty_id, 
+                                                                       product_size_color_warranty.price AS warranty_price,
+                                                                       product_size_color_warranty.offer_price AS warranty_offer_price,
+                                                                       vendor_stock.vendor_id,
+                                                                       (CASE 
+                                                                        WHEN product_size_color_warranty.price IS NULL
+                                                                        THEN (CASE WHEN product_size.offer_price != 0 
+                                                                        THEN product_size.offer_price 
+                                                                        ELSE product_size.price END)
+                                                                        ELSE (CASE WHEN product_size_color_warranty.offer_price != 0 
+                                                                        THEN product_size_color_warranty.offer_price 
+                                                                        ELSE product_size_color_warranty.price END)
+                                                                        END) AS compare_price
+                                                                FROM product_size
                                                                 INNER JOIN vendor_stock
                                                                 ON vendor_stock.product_size_id = product_size.id
+                                                                LEFT JOIN product_size_color
+                                                                ON product_size_color.product_size_id = product_size.id
+                                                                LEFT JOIN product_size_color_warranty
+                                                                ON product_size_color_warranty.product_size_color_id = product_size_color.id 
+                                                                WHERE product_size.status = 'active' 
+                                                                AND vendor_stock.vendor_id = '$vendor_id' 
+                                                                ORDER BY auto_id DESC) AS product_price_tbl
+                                                                ON product_price_tbl.prdt_id = product.id
+                                                                INNER JOIN product_image 
+                                                                ON product_image.product_id = product.id 
+                                                                INNER JOIN product_review
+                                                                ON product_review.product_id = product.id
                                                                 LEFT JOIN product_category
                                                                 ON product_category.product_id = product.id
                                                                 LEFT JOIN category
                                                                 ON category.id = product_category.category_id
-                                                                AND category.status = 'active' 
-                                                                WHERE product.status = 'active' 
-                                                                AND vendor_stock.vendor_id = '$vendor_id'
+                                                                AND category.status = 'active'
+                                                                WHERE product.status = 'active'
                                                                 GROUP BY product.id 
                                                                 ORDER BY rating DESC
                                                                 LIMIT 4");
@@ -437,19 +517,10 @@ class API extends REST
                     if ($row5['category']) {
                         $most_rated_rlt['uid'] = $row5['uid'];
                         $most_rated_rlt['name'] = $row5['name'];
-                        if ($row5['offer_price'] > 0) {
-                            if ($row5['offer_price'] < $row5['price']) {
-                                $most_rated_rlt['old_price'] = $row5['old_price'];
-                                $most_rated_rlt['display_price'] = $row5['offer_price'];
-                            } else {
-                                $most_rated_rlt['old_price'] = '';
-                                $most_rated_rlt['display_price'] = $row5['price'];
-                            }
-                        } else {
-                            $most_rated_rlt['old_price'] = '';
-                            $most_rated_rlt['display_price'] = $row5['price'];
-                        }
                         $most_rated_rlt['image'] = self::URL . 'vendor_data/product/' . $row5['image'];
+                        $most_rated_rlt['offer_price'] = $row5['offer_price'];
+                        $most_rated_rlt['price'] = $row5['price'];
+
                         array_push($most_rated_data, $most_rated_rlt);
                     }
                 }
@@ -727,14 +798,16 @@ class API extends REST
         $uid = isset($this->_request['uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['uid']) : null;
         $vendor_uid = isset($this->_request['vendor_uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['vendor_uid']) : null;
         $type = isset($this->_request['type']) ? mysqli_real_escape_string($this->mysqli, $this->_request['type']) : null;
+        $cart_id_array_val = isset($this->_request['cart_id_array']) ? $this->_request['cart_id_array'] : null;
         $user_id = $this->db_user->isValidUserId($uid);
 
         if ($user_id) {
             $vendor_id = $this->db_user->isValidVendorId($vendor_uid);
 
             if ($vendor_id) {
+
                 //get cart list
-                $cart = mysqli_query($this->mysqli, "SELECT cart.id AS cart_id,
+                $cart_result = "SELECT cart.id AS cart_id,
                                                                cart.count,
                                                                cart.color_id,
                                                                cart.warranty_id,
@@ -796,9 +869,18 @@ class API extends REST
                                                         ON category.id = product_category.category_id
                                                         AND category.status = 'active'
                                                         WHERE cart.user_id = '$user_id'
-                                                        AND cart.vendor_id = '$vendor_id'
-                                                        GROUP BY cart_id
-                                                        ORDER BY cart.timestamp DESC");
+                                                        AND cart.vendor_id = '$vendor_id'";
+
+                if ($cart_id_array_val != null) {
+                    $cart_id_array = json_decode($cart_id_array_val, true);
+                    if (count($cart_id_array) > 0) {
+                        $cart_id_arr = implode(",", $cart_id_array);
+                        $cart_result .= " AND cart.id IN ($cart_id_arr)";
+                    }
+                }
+
+                $cart_result .= " GROUP BY cart_id ORDER BY cart.timestamp DESC";
+                $cart = mysqli_query($this->mysqli, $cart_result);
 
                 $cart_data = array();
                 $error_count = 0;
@@ -965,7 +1047,7 @@ class API extends REST
                                 if ($row['status'] == 'active') {
                                     if ($stock != 'unlimited') {
                                         if ($row['warranty_id'] || $row['product_design_id']) {
-                                            $warranty_query = mysqli_query($this->mysqli, "SELECT SUM(cart.count) AS total_cart_count
+                                            $warranty_result_query = "SELECT SUM(cart.count) AS total_cart_count
                                                                                               FROM cart
                                                                                               WHERE cart.user_id = '$user_id'
                                                                                               AND cart.vendor_id = '$vendor_id'
@@ -975,7 +1057,18 @@ class API extends REST
                                                                                               AND ((cart.warranty_id IS NOT NULL
                                                                                               AND cart.product_design_id IS NOT NULL)
                                                                                               OR cart.warranty_id IS NOT NULL
-                                                                                              OR cart.product_design_id IS NOT NULL)");
+                                                                                              OR cart.product_design_id IS NOT NULL)";
+
+                                            if ($cart_id_array_val != null) {
+                                                $cart_id_array = json_decode($cart_id_array_val, true);
+                                                if (count($cart_id_array) > 0) {
+                                                    $cart_id_arr = implode(",", $cart_id_array);
+                                                    $warranty_result_query .= " AND cart.id IN ($cart_id_arr)";
+                                                }
+                                            }
+
+                                            $warranty_query = mysqli_query($this->mysqli, $warranty_result_query);
+
                                             if (mysqli_num_rows($warranty_query)) {
                                                 $row_warranty = mysqli_fetch_array($warranty_query);
                                                 $count = $row_warranty['total_cart_count'];
@@ -1123,6 +1216,13 @@ class API extends REST
                                     $success = array('status' => "Failed", 'msg' => "Failed");
                                     $this->response($this->json($success), 200);
                                 }
+                            } else if ($page == 'change_cart') {
+                                $product_rlt = mysqli_query($this->mysqli, "UPDATE cart
+                                                                          SET `count` = '$count',
+                                                                               color_id = $color_id,
+                                                                               warranty_id = $warranty_id,
+                                                                               product_design_id = $design_id
+                                                                          WHERE id = '$cart_id'");
                             } else {
                                 $success = array('status' => "Failed", 'msg' => "Failed");
                                 $this->response($this->json($success), 200);
@@ -1203,13 +1303,14 @@ class API extends REST
         $vendor_uid = isset($this->_request['vendor_uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['vendor_uid']) : null;
         $promo_code = isset($this->_request['promo_code']) ? mysqli_real_escape_string($this->mysqli, $this->_request['promo_code']) : null;
         $total_cost = isset($this->_request['total_cost']) ? mysqli_real_escape_string($this->mysqli, $this->_request['total_cost']) : null;
+        $cart_id_array_val = isset($this->_request['cart_id_array']) ? $this->_request['cart_id_array'] : null;
 
         $user_id = $this->db_user->isValidUserId($uid);
         if ($user_id) {
             $vendor_id = $this->db_user->isValidVendorId($vendor_uid);
             if ($vendor_id) {
                 $current_date = date('Y-m-d');
-                $promo_code_check = mysqli_query($this->mysqli, "SELECT SUM(CASE WHEN (table1.warranty_price > 0
+                $promo_code_check_query = "SELECT SUM(CASE WHEN (table1.warranty_price > 0
                                                                                AND table1.warranty_price IS NOT NULL) 
                                                                                THEN (table1.warranty_price  * table1.count)
                                                                                ELSE (table1.price  * table1.count) END) AS display_price_val,
@@ -1260,8 +1361,20 @@ class API extends REST
                                                                         WHERE cart.user_id = '$user_id'
                                                                         AND cart.vendor_id = '$vendor_id'
                                                                         AND (promo_code.flat_rate IS NOT NULL 
-                                                                        OR promo_code.flat_rate_percent IS NOT NULL)
-                                                                        GROUP BY cart.id) AS table1");
+                                                                        OR promo_code.flat_rate_percent IS NOT NULL)";
+
+                if ($cart_id_array_val != null) {
+                    $cart_id_array = json_decode($cart_id_array_val, true);
+                    if (count($cart_id_array) > 0) {
+                        $cart_id_arr = implode(",", $cart_id_array);
+                        $promo_code_check_query .= " AND cart.id IN ($cart_id_arr)";
+                    }
+                }
+
+                $promo_code_check_query .= " GROUP BY cart.id) AS table1";
+
+                $promo_code_check = mysqli_query($this->mysqli, $promo_code_check_query);
+
                 if (mysqli_num_rows($promo_code_check)) {
                     $rate = 0;
                     $row = mysqli_fetch_array($promo_code_check);
@@ -1702,30 +1815,60 @@ class API extends REST
             $lower_limit = ($page - 1) * $limit;
 
             $query = "SELECT SQL_CALC_FOUND_ROWS product.*, 
-                             MIN(product_size.price) AS price,
-                             MIN(CASE WHEN product_size.offer_price != 0 THEN offer_price END) AS offer_price,
-                             MIN(CASE WHEN product_size.offer_price != 0 THEN price END) AS old_price,
-                             AVG(product_review.rating) AS rating,
-                             product_image.image
-                      FROM product 
-                      LEFT JOIN product_review  
-                      ON product_review.product_id = product.id
-                      INNER JOIN product_size 
-                      ON product_size.product_id = product.id
-                      INNER JOIN product_image 
-                      ON product_image.product_id = product.id 
-                      INNER JOIN vendor_stock
-                      ON vendor_stock.product_size_id = product_size.id
-                      INNER JOIN product_category
-                      ON product_category.product_id = product.id
-                      INNER JOIN category
-                      ON category.id = product_category.category_id
-                      AND category.status = 'active'
-                      LEFT JOIN product_tag
-                      ON product_tag.product_id = product.id
-                      WHERE product.status = 'active'
-                      AND product_size.status = 'active'
-                      AND vendor_stock.vendor_id = '$vendor_id'";
+                            product_image.image, 
+                            AVG(product_review.rating) AS rating,
+                            CASE WHEN product_price_tbl.warranty_price IS NOT NULL THEN product_price_tbl.warranty_price ELSE product_price_tbl.price END AS price,
+                            CASE WHEN product_price_tbl.warranty_price IS NOT NULL THEN product_price_tbl.warranty_offer_price ELSE product_price_tbl.offer_price END AS offer_price
+                            FROM product 
+                            INNER JOIN (
+                            SELECT row_number()over(order by compare_price) auto_id,
+                                   product_size.product_id AS prdt_id,
+                                   product_size.price,
+                                   product_size.offer_price,
+                                   product_size_color.id AS product_size_color_id, 
+                                   product_size_color_warranty.id AS product_size_warranty_id, 
+                                   product_size_color_warranty.price AS warranty_price,
+                                   product_size_color_warranty.offer_price AS warranty_offer_price,
+                                   vendor_stock.vendor_id,
+                                   vendor_stock.timestamp AS vendor_stock_timestamp,
+                            (CASE 
+                            WHEN product_size_color_warranty.price IS NULL
+                            THEN (CASE WHEN product_size.offer_price != 0 
+                            THEN product_size.offer_price 
+                            ELSE product_size.price END)
+                            ELSE (CASE WHEN product_size_color_warranty.offer_price != 0 
+                            THEN product_size_color_warranty.offer_price 
+                            ELSE product_size_color_warranty.price END)
+                            END) AS compare_price
+                            FROM product_size
+                            INNER JOIN vendor_stock
+                            ON vendor_stock.product_size_id = product_size.id
+                            LEFT JOIN product_size_color
+                            ON product_size_color.product_size_id = product_size.id
+                            LEFT JOIN product_size_color_warranty
+                            ON product_size_color_warranty.product_size_color_id = product_size_color.id 
+                            WHERE product_size.status = 'active' 
+                            AND vendor_stock.vendor_id = '$vendor_id'";
+
+            if ($price_start != '' && $price_end != '') {
+                $query .= " AND (((product_size.price BETWEEN '$price_start' AND '$price_end') AND product_size.offer_price IN (0))
+                OR ((product_size.offer_price BETWEEN '$price_start' AND '$price_end') AND product_size.offer_price NOT IN (0)))";
+            }
+
+            $query .= " ORDER BY auto_id DESC) AS product_price_tbl
+                            ON product_price_tbl.prdt_id = product.id
+                            INNER JOIN product_image 
+                            ON product_image.product_id = product.id 
+                            LEFT JOIN product_review  
+                            ON product_review.product_id = product.id
+                            LEFT JOIN product_category
+                            ON product_category.product_id = product.id
+                            LEFT JOIN category
+                            ON category.id = product_category.category_id
+                            AND category.status = 'active'
+                            LEFT JOIN product_tag
+                            ON product_tag.product_id = product.id
+                            WHERE product.status = 'active'";
 
             if ($category_id != '') {
                 $query .= " AND product_category.category_id = '$category_id'";
@@ -1739,16 +1882,15 @@ class API extends REST
                 $query .= " AND product.name LIKE '%$search%'";
             }
 
-            if ($price_start != '' && $price_end != '') {
-                $query .= " AND (((product_size.price BETWEEN '$price_start' AND '$price_end') AND product_size.offer_price IN (0))
-                OR ((product_size.offer_price BETWEEN '$price_start' AND '$price_end') AND product_size.offer_price NOT IN (0)))";
+            if ($sort_by == 'avg_rating') {
+                $query .= " AND product_review.rating > 0";
             }
 
             $query .= " GROUP BY product.id";
             if ($sort_by == 'avg_rating') {
                 $query .= " ORDER BY rating DESC";
             } else {
-                $query .= " ORDER BY vendor_stock.`timestamp` DESC";
+                $query .= " ORDER BY product_price_tbl.vendor_stock_timestamp DESC";
             }
             $query .= " LIMIT $lower_limit, $limit";
 
@@ -1767,19 +1909,10 @@ class API extends REST
                     $data['name'] = $row['name'];
                     $data['description'] = $row['description'];
                     $data['rating'] = round($row['rating']);
-                    if ($row['offer_price'] > 0) {
-                        if ($row['offer_price'] < $row['price']) {
-                            $data['old_price'] = $row['old_price'];
-                            $data['display_price'] = $row['offer_price'];
-                        } else {
-                            $data['old_price'] = '';
-                            $data['display_price'] = $row['price'];
-                        }
-                    } else {
-                        $data['old_price'] = '';
-                        $data['display_price'] = $row['price'];
-                    }
                     $data['image'] = self::URL . 'vendor_data/product/' . $row['image'];
+                    $data['offer_price'] = $row['offer_price'];
+                    $data['price'] = $row['price'];
+
                     array_push($product_list, $data);
                 }
             }
@@ -1801,17 +1934,27 @@ class API extends REST
 
         $page = isset($this->_request['page']) ? mysqli_real_escape_string($this->mysqli, $this->_request['page']) : 1;
 
-        $limit = 6;
-        $lower_limit = ($page - 1) * $limit;
         //get store list
-        $store_list = mysqli_query($this->mysqli, "SELECT SQL_CALC_FOUND_ROWS vendor.* FROM vendor
-                                                          WHERE status = 'active'
-                                                          LIMIT $lower_limit, $limit");
+        $store_list_query = "SELECT SQL_CALC_FOUND_ROWS vendor.* 
+                             FROM vendor
+                             WHERE status = 'active'";
 
-        $count_rlt = mysqli_query($this->mysqli, "SELECT FOUND_ROWS() AS data_count");
-        $count_rlt = mysqli_fetch_assoc($count_rlt);
-        $data_count = $count_rlt['data_count'];
-        $total_pages = ceil($data_count / $limit);
+        if ($page != 'all') {
+            $limit = 6;
+            $lower_limit = ($page - 1) * $limit;
+            $store_list_query .= " LIMIT $lower_limit, $limit";
+
+            $store_list = mysqli_query($this->mysqli, $store_list_query);
+
+            $count_rlt = mysqli_query($this->mysqli, "SELECT FOUND_ROWS() AS data_count");
+            $count_rlt = mysqli_fetch_assoc($count_rlt);
+            $data_count = $count_rlt['data_count'];
+            $total_pages = ceil($data_count / $limit);
+        } else {
+            $store_list = mysqli_query($this->mysqli, $store_list_query);
+            $total_pages = 0;
+        }
+
 
         $store_list_data = array();
         if (mysqli_num_rows($store_list)) {
@@ -1903,6 +2046,7 @@ class API extends REST
         $shipping_fee = isset($this->_request['shipping_fee']) ? mysqli_real_escape_string($this->mysqli, $this->_request['shipping_fee']) : null;
         $address_id = isset($this->_request['address_id']) ? mysqli_real_escape_string($this->mysqli, $this->_request['address_id']) : null;
         $order_type = isset($this->_request['order_type']) ? mysqli_real_escape_string($this->mysqli, $this->_request['order_type']) : null;
+        $cart_id_array_val = isset($this->_request['cart_id_array']) ? $this->_request['cart_id_array'] : null;
         $order_uid = $this->create_alpha_numeric_string(16);
         $order_id = '';
         $total_amount = round($amount, 2);
@@ -1949,6 +2093,7 @@ class API extends REST
                        AND product_color_image.color_id = cart.color_id
                        LEFT JOIN product_design
                        ON product_design.product_id = product.id
+                       AND product_design.status = 'active'
                        LEFT JOIN product_design_image
                        ON product_design_image.product_design_id = product_design.id
                        AND product_design_image.product_design_id = cart.product_design_id
@@ -1970,8 +2115,17 @@ class API extends REST
                        ON product_size_color_warranty.product_size_color_id = product_size_color.id 
                        AND product_size_color_warranty.warranty_id = cart.warranty_id
                        WHERE cart.user_id = '$user_id'
-                       AND cart.vendor_id = '$vendor_id'
-                       GROUP BY cart.id";
+                       AND cart.vendor_id = '$vendor_id'";
+
+                if ($cart_id_array_val != null) {
+                    $cart_id_array = json_decode($cart_id_array_val, true);
+                    if (count($cart_id_array) > 0) {
+                        $cart_id_arr = implode(",", $cart_id_array);
+                        $query .= " AND cart.id IN ($cart_id_arr)";
+                    }
+                }
+
+                $query .= " GROUP BY cart.id";
 
                 $query_rlt = mysqli_query($this->mysqli, $query);
                 if (mysqli_num_rows($query_rlt)) {
@@ -2046,7 +2200,7 @@ class API extends REST
 
                                 if ($stock != 'unlimited') {
                                     if ($row['warranty_id'] || $row['product_design_id']) {
-                                        $warranty_query = mysqli_query($this->mysqli, "SELECT SUM(cart.count) AS total_cart_count
+                                        $warranty_result_query = "SELECT SUM(cart.count) AS total_cart_count
                                                                                               FROM cart
                                                                                               WHERE cart.user_id = '$user_id'
                                                                                               AND cart.vendor_id = '$vendor_id'
@@ -2056,7 +2210,19 @@ class API extends REST
                                                                                               AND ((cart.warranty_id IS NOT NULL
                                                                                               AND cart.product_design_id IS NOT NULL)
                                                                                               OR cart.warranty_id IS NOT NULL
-                                                                                              OR cart.product_design_id IS NOT NULL)");
+                                                                                              OR cart.product_design_id IS NOT NULL)";
+
+
+                                        if ($cart_id_array_val != null) {
+                                            $cart_id_array = json_decode($cart_id_array_val, true);
+                                            if (count($cart_id_array) > 0) {
+                                                $cart_id_arr = implode(",", $cart_id_array);
+                                                $warranty_result_query .= " AND cart.id IN ($cart_id_arr)";
+                                            }
+                                        }
+
+                                        $warranty_query = mysqli_query($this->mysqli, $warranty_result_query);
+
                                         if (mysqli_num_rows($warranty_query)) {
                                             $row_warranty = mysqli_fetch_array($warranty_query);
                                             $count = $row_warranty['total_cart_count'];
@@ -2280,8 +2446,17 @@ class API extends REST
                                   AND (vendor_stock.color_id = cart.color_id
                                   OR cart.color_id IS NULL)
                                   WHERE cart.user_id = '$user_id'
-                                  AND cart.vendor_id = '$vendor_id'
-                                  GROUP BY vendor_stock.id";
+                                  AND cart.vendor_id = '$vendor_id'";
+
+                        if ($cart_id_array_val != null) {
+                            $cart_id_array = json_decode($cart_id_array_val, true);
+                            if (count($cart_id_array) > 0) {
+                                $cart_id_arr = implode(",", $cart_id_array);
+                                $query .= " AND cart.id IN ($cart_id_arr)";
+                            }
+                        }
+
+                        $query .= " GROUP BY vendor_stock.id";
 
                         $query_rlt = mysqli_query($this->mysqli, $query);
                         while ($row = mysqli_fetch_array($query_rlt)) {
@@ -2296,13 +2471,22 @@ class API extends REST
                             }
                         }
 
-                        $delete_cart = mysqli_query($this->mysqli, "DELETE FROM cart
-                                                                           WHERE user_id = '$user_id'
-                                                                           AND vendor_id = '$vendor_id'");
+                        $delete_cart_query = "DELETE FROM cart
+                                              WHERE user_id = '$user_id'
+                                              AND vendor_id = '$vendor_id'";
+
+                        if ($cart_id_array_val != null) {
+                            $cart_id_array = json_decode($cart_id_array_val, true);
+                            if (count($cart_id_array) > 0) {
+                                $cart_id_arr = implode(",", $cart_id_array);
+                                $delete_cart_query .= " AND id IN ($cart_id_arr)";
+                            }
+                        }
+                        $delete_cart = mysqli_query($this->mysqli, $delete_cart_query);
 
                         $this->send_mail_variables('order_confirmed', $order_id);
 
-                        $success = array('status' => "Success", 'msg' => "Order Placed Successfully");
+                        $success = array('status' => "Success", 'msg' => "Order Placed Successfully", 'order_uid' => $order_uid);
                         $this->response($this->json($success), 200);
                     } else {
                         $this->send_mail_variables('order_failed', $order_id);
@@ -2334,6 +2518,7 @@ class API extends REST
         $payment_id = isset($this->_request['payment_id']) ? mysqli_real_escape_string($this->mysqli, $this->_request['payment_id']) : null;
         $signature = isset($this->_request['signature']) ? mysqli_real_escape_string($this->mysqli, $this->_request['signature']) : null;
         $total_amt = isset($this->_request['total_amt']) ? mysqli_real_escape_string($this->mysqli, $this->_request['total_amt']) : null;
+        $cart_id_array_val = isset($this->_request['cart_id_array']) ? $this->_request['cart_id_array'] : null;
 
         $user_id = $this->db_user->isValidUserId($uid);
 
@@ -2400,8 +2585,17 @@ class API extends REST
                                   AND (vendor_stock.color_id = cart.color_id
                                   OR cart.color_id IS NULL)
                                   WHERE cart.user_id = '$user_id'
-                                  AND cart.vendor_id = '$vendor_id'
-                                  GROUP BY vendor_stock.id";
+                                  AND cart.vendor_id = '$vendor_id'";
+
+                        if ($cart_id_array_val != null) {
+                            $cart_id_array = json_decode($cart_id_array_val, true);
+                            if (count($cart_id_array) > 0) {
+                                $cart_id_arr = implode(",", $cart_id_array);
+                                $query .= " AND cart.id IN ($cart_id_arr)";
+                            }
+                        }
+
+                        $query .= " GROUP BY vendor_stock.id";
 
                         $query_rlt = mysqli_query($this->mysqli, $query);
                         while ($row = mysqli_fetch_array($query_rlt)) {
@@ -2416,9 +2610,18 @@ class API extends REST
                             }
                         }
 
-                        $delete_cart = mysqli_query($this->mysqli, "DELETE FROM cart
-                                                                           WHERE user_id = '$user_id'
-                                                                           AND vendor_id = '$vendor_id'");
+                        $delete_cart_query = "DELETE FROM cart
+                                              WHERE user_id = '$user_id'
+                                              AND vendor_id = '$vendor_id'";
+
+                        if ($cart_id_array_val != null) {
+                            $cart_id_array = json_decode($cart_id_array_val, true);
+                            if (count($cart_id_array) > 0) {
+                                $cart_id_arr = implode(",", $cart_id_array);
+                                $delete_cart_query .= " AND id IN ($cart_id_arr)";
+                            }
+                        }
+                        $delete_cart = mysqli_query($this->mysqli, $delete_cart_query);
 
                         $this->send_mail_variables('order_confirmed', $order_id);
 

@@ -242,17 +242,17 @@
 #prdtListItemDiv1 .product-wrap .product-img a img,
 #prdtListItemDiv .product-wrap .product-img a img {
     height: 155px;
-    object-fit: cover;
+    object-fit: contain;
 }
 
 .product-wrap .product-img a img {
     height: 180px;
-    object-fit: cover;
+    object-fit: contain;
 }
 
 .product-slider-active-1 .product-wrap .product-img a img {
     height: 300px;
-    object-fit: cover;
+    object-fit: contain;
 }
 
 .padding-0px {
@@ -277,9 +277,67 @@
     margin-bottom: 20px
 }
 
+.cart-checkbox-image {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+}
+
+.cart-checkbox-div {
+    padding-right: 20px;
+}
+
+.cart-checkbox-input {
+    height: 15px;
+    width: 15px
+}
+
+.reg-pswd-eye-div {
+    position: relative !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+}
+
+.pswd-eye-icon-div {
+    position: absolute;
+    top: 15px;
+    bottom: 0;
+    right: 15px
+}
+
+.selected-main-header-menu {
+    color: #e97730 !important;
+}
+
+.loading-color {
+    color: #e97730 !important;
+}
+
+.order-success-icon {
+    font-size: 60px;
+    color: green;
+}
+
+.text-green {
+    color: green;
+}
+
+.hot-product-nav {
+    white-space: nowrap !important;
+    flex-wrap: unset !important;
+}
+
 @media only screen and (max-width: 767px) {
     .grand-total-wrap .grand-total-btn span {
         font-size: 16px;
+    }
+
+    .hot-product-nav {
+        white-space: unset !important;
+        flex-wrap: wrap !important;
     }
 }
 
@@ -287,10 +345,20 @@
     .product-detail-cart {
         margin: 0 10px 0 10px;
     }
+
+    .hot-product-nav {
+        white-space: unset !important;
+        flex-wrap: wrap !important;
+    }
 }
 
 @media only screen and (max-width: 767px) {
     .product-detail-cart > a {
         padding: 20px 17px;
+    }
+
+    .hot-product-nav {
+        white-space: unset !important;
+        flex-wrap: wrap !important;
     }
 }

@@ -9,19 +9,19 @@
             <div id="mobile-menu" class="slinky-mobile-menu text-left">
                 <ul>
                     <li>
-                        <a href="index">HOME</a>
+                        <a type="index" class="on-menu-nav-click">HOME</a>
                     </li>
                     <li>
-                        <a href="shop">SHOP</a>
+                        <a type="shop" class="on-menu-nav-click">SHOP</a>
                     </li>
                     <li>
-                        <a href="products">PRODUCTS</a>
+                        <a type="products" class="on-menu-nav-click">PRODUCTS</a>
                     </li>
                     <li>
-                        <a href="about_us">ABOUT US</a>
+                        <a type="about_us" class="on-menu-nav-click">ABOUT US</a>
                     </li>
                     <li>
-                        <a href="contact_us">CONTACT US</a>
+                        <a type="contact_us" class="on-menu-nav-click">CONTACT US</a>
                     </li>
                 </ul>
             </div>

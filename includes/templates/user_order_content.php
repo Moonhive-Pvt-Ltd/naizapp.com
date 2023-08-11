@@ -5,8 +5,8 @@ $pagenum = isset($_GET['page']) ? $_GET['page'] : 1;
 $user_uid = isset($_COOKIE['naiz_web_user_uid']) ? $_COOKIE['naiz_web_user_uid'] : '';
 $total_pages = 0;
 $post = [
-  'uid' => $user_uid,
-  'page' => $pagenum,
+    'uid' => $user_uid,
+    'page' => $pagenum,
 ];
 $url = BASE_URL . "get_order_list";
 $result = getApiData($url, $post);

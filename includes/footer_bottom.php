@@ -1,3 +1,4 @@
+<div id="menuNavDiv"></div>
 <footer class="footer-area">
     <div class="bg-gray-2">
         <div class="container">
@@ -40,8 +41,8 @@
                             <h3 class="footer-title">Get in touch</h3>
                             <ul>
                                 <li><span>Address: </span>
-                                    Haridas Mandiram,  <br/>
-                                    Perror, Thattarkonam,  <br/>
+                                    Haridas Mandiram, <br/>
+                                    Perror, Thattarkonam, <br/>
                                     Kollam, Kerala - 691005
                                 </li>
                                 <li><span>Mobile:</span> 8078803595 or 9895958845</li>

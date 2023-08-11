@@ -1,5 +1,11 @@
 <?php
 include_once 'connect.php';
+require __DIR__ . '../../vendor/autoload.php';
+
+use PHPMailer\PHPMailer\PHPMailer;
+
+const EmailId = 'naiztrading2021@gmail.com';
+const EmailPswd = 'xktiublkkpriftmm';
 
 if (isset($_POST['action'])) {
     switch ($_POST['action']) {
@@ -14,6 +20,9 @@ if (isset($_POST['action'])) {
             break;
         case 'getCartSubTotalCount':
             getCartSubTotalCount($_POST, $mysqli);
+            break;
+        case 'sendContactUs':
+            sendContactUs($_POST, $mysqli);
             break;
     }
 }
@@ -169,14 +178,14 @@ function getCartCount($user_id, $vendor_id, $product_size_id, $color_id, $warran
     if (mysqli_num_rows($cart_rlt)) {
         $cart_row = mysqli_fetch_array($cart_rlt);
         $count = $cart_row['count'] ? $cart_row['count'] : 0;
-        if($type) {
+        if ($type) {
             echo $count;
             return;
         } else {
             return $count;
         }
     } else {
-        if($type) {
+        if ($type) {
             echo 0;
             return;
         } else {
@@ -209,10 +218,69 @@ function getCartSubTotalCount($post, $mysqli)
     if (mysqli_num_rows($cart_rlt)) {
         $cart_row = mysqli_fetch_array($cart_rlt);
         $count = $cart_row['count'] ? $cart_row['count'] : 0;
-            echo $count;
-            return;
+        echo $count;
+        return;
     } else {
-            echo 0;
-            return;
+        echo 0;
+        return;
+    }
+}
+
+function sendContactUs($post, $mysqli)
+{
+    $name = mysqli_real_escape_string($mysqli, $post['name']);
+    $email = mysqli_real_escape_string($mysqli, $post['email']);
+    $subject = mysqli_real_escape_string($mysqli, $post['subject']);
+    $phone = mysqli_real_escape_string($mysqli, $post['phone']);
+    $message = mysqli_real_escape_string($mysqli, $post['message']);
+
+    if (!preg_match("^[_a-z0-9-]+(\.[_a-z0-9-]+)*@[a-z0-9-]+(\.[a-z0-9-]+)*(\.[a-z]{2,3})$^", $email)) {
+        echo "Please enter a valid Email";
+        return;
+    }
+
+    if (!preg_match('/^[0-9]{10}+$/', $phone)) {
+        echo "Please enter a valid mobile";
+        return;
+    }
+
+    $rlt = mysqli_query($mysqli, "INSERT INTO contact_us (`name`, email, mobile, subject, message)
+                                                 VALUES('$name', '$email', '$phone', '$subject', '$message')");
+
+    if ($rlt) {
+        sendMail($email, $subject, $message);
+        echo 1;
+        return;
+    } else {
+        echo $mysqli->error;
+    }
+}
+
+function sendMail($email, $subject, $message)
+{
+    // Instantiation and passing `true` enables exceptions
+    $mail = new PHPMailer(true);
+    try {
+        //Server settings
+        $mail->SMTPDebug = 0;  // Enable verbose debug output
+        $mail->isSMTP();     // Send using SMTP
+        $mail->Host = 'smtp.gmail.com'; // Set the SMTP server to send through
+        $mail->SMTPAuth = true;   // Enable SMTP authentication
+        $mail->Username = EmailId;     // SMTP username
+        $mail->Password = EmailPswd;  // SMTP password
+        $mail->SMTPSecure = 'tls';  // Enable TLS encryption; `PHPMailer::ENCRYPTION_SMTPS` encouraged
+        $mail->Port = 587;   // TCP port to connect to, use 465 for `PHPMailer::ENCRYPTION_SMTPS` above
+
+        // From email address and name
+        $mail->setFrom(EmailId, 'Naiz');
+
+        // To email addresss
+        $mail->addAddress($email);   // Add a recipient
+        // Content
+        $mail->isHTML(true);  // Set email format to HTML
+        $mail->Subject = $subject;
+        $mail->Body = $message;
+        $mail->send();
+    } catch (Exception $e) {
     }
 }

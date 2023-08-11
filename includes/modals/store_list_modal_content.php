@@ -1,6 +1,8 @@
 <?php
 require_once("../functions.php");
-$post = [];
+$post = [
+    'page' => 'all',
+];
 $url = BASE_URL . "get_vendor_list";
 $result = getApiData($url, $post);
 $vendor_list = [];

@@ -5,8 +5,20 @@ $vendor_uid = isset($_COOKIE['naiz_web_vendor_uid']) ? $_COOKIE['naiz_web_vendor
 $post = [
     'uid' => $user_uid,
     'vendor_uid' => $vendor_uid,
-    'type' => 'initial',
+    'type' => 'initial'
 ];
+
+
+if (isset($_COOKIE['cart_id_array']) && ($_COOKIE['cart_id_array'])) {
+    $post = [
+        'uid' => $user_uid,
+        'vendor_uid' => $vendor_uid,
+        'type' => 'initial',
+        'cart_id_array' => $_COOKIE['cart_id_array']
+    ];
+
+}
+
 $url = BASE_URL . "get_vendor_pincode";
 $result = getApiData($url, $post);
 if ($result['status'] == 'Success') {
@@ -51,6 +63,9 @@ if ($user_uid) {
                     <input type="hidden" value="<?php echo $subtotal; ?>" name="total_cost">
                     <input type="hidden" name="vendor_uid" value="<?php echo $vendor_uid; ?>">
                     <input type="hidden" name="uid" value="<?php echo $user_uid; ?>">
+                    <input type="hidden"
+                           value="<?php echo (isset($_COOKIE['cart_id_array']) && ($_COOKIE['cart_id_array'])) ? htmlspecialchars($_COOKIE['cart_id_array']) : null ?>"
+                           name="cart_id_array">
                     <input type="submit" value="Apply Coupon" id="applyCouponBtn">
                 </form>
             </div>
@@ -151,18 +166,20 @@ if ($user_uid) {
                                                 <br/>
 
                                                 <div class="d-flex flex-row align-items-center">
-                                                    <span class="color-code-div"
+                                                    <?php if($row1['color_code']) { ?>
+                                                    <span class="margin-right-7px color-code-div"
                                                           style="background-color: <?php echo $row1['color_code']; ?>"></span>
-                                                    <span class="margin-left-7px font-size-13px"><?php echo $row1['size'] . ' (' . $row1['count'] . ')'; ?></span>
+                                                    <?php } ?>
+                                                    <span class="font-size-13px"><?php echo $row1['size'] . ' (' . $row1['count'] . ')'; ?></span>
                                                 </div>
                                                 <?php if ($row1['is_warranty'] == 1) { ?>
                                                     <div class="d-flex flex-row align-items-center mt-2">
-                                                        <span class="margin-left-7px font-size-13px">Warranty: <?php echo $row1['warranty']; ?></span>
+                                                        <span class="font-size-13px">Warranty: <?php echo $row1['warranty']; ?></span>
                                                     </div>
                                                 <?php } ?>
                                                 <?php if ($row1['is_design'] == 1) { ?>
                                                     <div class="d-flex flex-row align-items-center mt-2">
-                                                        <span class="margin-left-7px font-size-13px">Design: <?php echo $row1['design_name']; ?></span>
+                                                        <span class="font-size-13px">Design: <?php echo $row1['design_name']; ?></span>
                                                     </div>
                                                 <?php } ?>
                                                 <br/>
@@ -213,6 +230,9 @@ if ($user_uid) {
                             <input type="hidden" value="<?php echo $email; ?>" id="userEmail">
                             <input type="hidden" value="<?php echo $mobile; ?>" id="userMobile">
                             <input type="hidden" value="<?php echo $total_cost; ?>" id="totalAmount">
+                            <input type="hidden"
+                                   value="<?php echo (isset($_COOKIE['cart_id_array']) && ($_COOKIE['cart_id_array'])) ? htmlspecialchars($_COOKIE['cart_id_array']) : '' ?>"
+                                   id="cartIdArray">
                             <a href="" class="place-order-btn">Online Payment</a>
                             <a href="" class="on-cash-on-delivery-btn mt-4">Cash On Delivery</a>
                         </div>

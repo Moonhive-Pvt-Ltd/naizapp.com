@@ -68,7 +68,19 @@ $(document).ready(function () {
                 $(btn).prop('disabled', false);
                 $(btn).html('Register');
                 if (data.status == 'Success') {
-                    location.href = './login_register';
+                    Swal.fire({
+                        title: '<div class="mt-4"><h5>Registered Successfully</h5></div>',
+                        allowOutsideClick: false,
+                        showCancelButton: false,
+                        width: 400,
+                        padding: 8,
+                        confirmButtonText: `Ok`,
+                        confirmButtonColor: "#e97730",
+                    }).then((result) => {
+                        if (result.value) {
+                            location.href = './login_register';
+                        }
+                    });
                 } else {
                     Swal.fire({text: data.msg, confirmButtonColor: "#e97730"});
                 }
@@ -280,19 +292,48 @@ $(document).ready(function () {
             let total_price_cost = 0;
             let cart_tr = $('.cart-tr');
 
-            for (var i = 0; i < cart_tr.length; i++) {
-                let stock_count = $(cart_tr[i]).find('.stock-count').val();
-                let display_price = $(cart_tr[i]).find('.stock-price').val();
-                total_price_cost = parseInt(total_price_cost) + parseInt(stock_count * display_price);
-                $(cart_tr[i]).find('.total-display-price-amount').html(stock_count * display_price);
+            let cart_all_check_length = $(cart_tr).find('.cart-checkbox-input').is(':checked');
+
+            if (cart_all_check_length) {
+                let cart_check_length = $(btn).closest('tr').find('.cart-checkbox-input').is(':checked');
+
+                if (cart_check_length) {
+                    for (var i = 0; i < cart_tr.length; i++) {
+                        if ($(cart_tr[i]).find('.cart-checkbox-input').is(':checked')) {
+                            let stock_count = $(cart_tr[i]).find('.stock-count').val();
+                            let display_price = $(cart_tr[i]).find('.stock-price').val();
+                            total_price_cost = parseInt(total_price_cost) + parseInt(stock_count * display_price);
+                            $(cart_tr[i]).find('.total-display-price-amount').html(stock_count * display_price);
+                        }
+                    }
+                } else {
+                    for (var i = 0; i < cart_tr.length; i++) {
+                        let stock_count = $(cart_tr[i]).find('.stock-count').val();
+                        let display_price = $(cart_tr[i]).find('.stock-price').val();
+                        $(cart_tr[i]).find('.total-display-price-amount').html(stock_count * display_price);
+                        total_price_cost = $('.total-price-cost').html();
+                    }
+                }
+            } else {
+                for (var i = 0; i < cart_tr.length; i++) {
+                    let stock_count = $(cart_tr[i]).find('.stock-count').val();
+                    let display_price = $(cart_tr[i]).find('.stock-price').val();
+                    total_price_cost = parseInt(total_price_cost) + parseInt(stock_count * display_price);
+                    $(cart_tr[i]).find('.total-display-price-amount').html(stock_count * display_price);
+                }
             }
 
             $('.total-price-cost').html(total_price_cost);
 
+            let count_value = val;
+            if (val == '') {
+                count_value = 0;
+            }
+
             let form_data = new FormData();
             form_data.append('uid', uid);
-            form_data.append('page', 'cart');
-            form_data.append('count', val);
+            form_data.append('page', 'change_cart');
+            form_data.append('count', count_value);
             form_data.append('product_uid', product_uid);
             form_data.append('vendor_uid', vendor_uid);
             form_data.append('product_size_id', product_size_id);
@@ -662,11 +703,6 @@ $(document).ready(function () {
         let warranty_id = $(this).closest('tr').attr('warranty-id');
         let cart_id = $(this).closest('tr').attr('cart-id');
 
-        let count = $(this).closest('tr').attr('count');
-        let display_price = $(this).closest('tr').attr('display-price');
-        let total_price_cost = $('.total-price-cost').html();
-        let cost = parseInt(total_price_cost) - (count * display_price);
-
         Swal.fire({
             title: '<div class="mt-4"><h5>Do you really want to remove this product?</h5></div>',
             showCancelButton: true,
@@ -701,7 +737,31 @@ $(document).ready(function () {
                             $('.no-stock-available-td-' + cart_id).remove();
                             $('.cart-tr-' + cart_id).remove();
 
-                            $('.total-price-cost').html(cost);
+                            let total_price_cost = 0;
+                            let cart_tr = $('.cart-tr');
+
+                            let cart_all_check_length = $(cart_tr).find('.cart-checkbox-input').is(':checked');
+
+                            if (cart_all_check_length) {
+                                for (var i = 0; i < cart_tr.length; i++) {
+                                    if ($(cart_tr[i]).find('.cart-checkbox-input').is(':checked')) {
+                                        let stock_count = $(cart_tr[i]).find('.stock-count').val();
+                                        let display_price = $(cart_tr[i]).find('.stock-price').val();
+                                        total_price_cost = parseInt(total_price_cost) + parseInt(stock_count * display_price);
+                                        $(cart_tr[i]).find('.total-display-price-amount').html(stock_count * display_price);
+                                    }
+                                }
+                            } else {
+                                for (var i = 0; i < cart_tr.length; i++) {
+                                    let stock_count = $(cart_tr[i]).find('.stock-count').val();
+                                    let display_price = $(cart_tr[i]).find('.stock-price').val();
+                                    total_price_cost = parseInt(total_price_cost) + parseInt(stock_count * display_price);
+                                    $(cart_tr[i]).find('.total-display-price-amount').html(stock_count * display_price);
+                                }
+                            }
+
+                            $('.total-price-cost').html(total_price_cost);
+
                             Toast.fire({
                                 type: 'success',
                                 title: 'Removed Successfully'
@@ -846,12 +906,34 @@ $(document).ready(function () {
         form_data.append('type', 'checkout');
 
         let cart_tr = $('.cart-tr');
-        for (var i = 0; i < cart_tr.length; i++) {
-            let stock_count = $(cart_tr[i]).find('.stock-count').val();
-            if (stock_count == '' || stock_count == 0) {
-                Swal.fire({text: 'Atleast 1 is required', confirmButtonColor: "#e97730"});
-                return;
+
+        let cart_check_length = $(cart_tr).find('.cart-checkbox-input').is(':checked');
+
+        let cart_id_array = [];
+
+        if (cart_check_length) {
+            for (var i = 0; i < cart_tr.length; i++) {
+                if ($(cart_tr[i]).find('.cart-checkbox-input').is(':checked')) {
+                    let stock_count = $(cart_tr[i]).find('.stock-count').val();
+                    if (stock_count == '' || stock_count == 0) {
+                        Swal.fire({text: 'Atleast 1 is required', confirmButtonColor: "#e97730"});
+                        return;
+                    }
+                    cart_id_array.push($(cart_tr[i]).attr('cart-id'))
+                }
             }
+        } else {
+            for (var i = 0; i < cart_tr.length; i++) {
+                let stock_count = $(cart_tr[i]).find('.stock-count').val();
+                if (stock_count == '' || stock_count == 0) {
+                    Swal.fire({text: 'Atleast 1 is required', confirmButtonColor: "#e97730"});
+                    return;
+                }
+            }
+        }
+
+        if (cart_id_array.length > 0) {
+            form_data.append('cart_id_array', JSON.stringify(cart_id_array));
         }
 
         let url = BASE_URL + "get_cart_list";
@@ -865,6 +947,7 @@ $(document).ready(function () {
             success: function (data) {
                 if (data.status == 'Success') {
                     if (data.error_count == 0) {
+                        setCookie('cart_id_array', JSON.stringify(cart_id_array));
                         location.href = './checkout';
                     } else {
                         location.href = './cart';
@@ -902,17 +985,42 @@ $(document).ready(function () {
             const modal_id = document.querySelector('#modalDivId');
             const modal = bootstrap.Modal.getInstance(modal_id);
             modal.hide();
-            getHomeContent();
-            // location.reload();
+            location.reload();
         } else {
             Swal.fire({text: 'Select a Vendor', confirmButtonColor: "#e97730"});
         }
     });
 
-    if (document.getElementById('homeContent')) {
+    $(document).on('click', '.on-menu-nav-click', function () {
         let naiz_web_vendor_uid = getCookie('naiz_web_vendor_uid');
-        if (naiz_web_vendor_uid != '') {
-            getHomeContent();
+        if (naiz_web_vendor_uid == '') {
+            window.location.href = "index"
+            return;
+        }
+        let type = $(this).attr('type');
+        if (type == 'index') {
+            setCookie('landing_page', 'yes')
+            window.location.href = "index"
+        } else if (type == 'shop') {
+            window.location.href = "shop"
+        } else if (type == 'products') {
+            window.location.href = "products"
+        } else if (type == 'about_us') {
+            window.location.href = "about_us"
+        } else if (type == 'contact_us') {
+            window.location.href = "contact_us"
+        } else if (type == 'account') {
+            window.location.href = "account"
+        } else if (type == 'cart') {
+            window.location.href = "cart"
+        }
+    });
+
+    if (document.getElementById('menuNavDiv')) {
+        let naiz_web_vendor_uid = getCookie('naiz_web_vendor_uid');
+        if (naiz_web_vendor_uid == '') {
+            window.location.href = "index"
+            return;
         }
     }
 
@@ -931,6 +1039,7 @@ $(document).ready(function () {
         modal.hide();
         let naiz_web_vendor_uid = getCookie('naiz_web_vendor_uid');
         if (naiz_web_vendor_uid == '') {
+            setCookie('landing_page', 'no')
             var myModal = new bootstrap.Modal(document.getElementById('modalDivId'), {
                 backdrop: 'static',
                 keyboard: false
@@ -1011,6 +1120,7 @@ $(document).ready(function () {
         let user_email = $('#userEmail').val();
         let user_mobile = $('#userMobile').val();
         let user_full_name = $('#userFullName').val();
+        let cart_id_array = $('#cartIdArray').val();
 
         if (selected_address_id) {
             btn.prop('disabled', true);
@@ -1026,6 +1136,9 @@ $(document).ready(function () {
             form_data.append("shipping_fee", shipping_fee);
             form_data.append("address_id", selected_address_id);
             form_data.append("order_type", 'online');
+            if (cart_id_array != '') {
+                form_data.append("cart_id_array", cart_id_array);
+            }
 
             let url = BASE_URL + "create_razorpay_order";
             $.ajax({
@@ -1039,6 +1152,7 @@ $(document).ready(function () {
                     if (response.status == 'Success') {
                         let order_id = response.order_id;
                         let amount = response.amount;
+                        let order_uid = response.order_uid;
 
                         var razorpay_options = {
                             currency: 'INR',
@@ -1063,6 +1177,9 @@ $(document).ready(function () {
                                 form_data1.append("payment_order_id", transaction.razorpay_order_id);
                                 form_data1.append("signature", transaction.razorpay_signature);
                                 form_data1.append("total_amt", amount);
+                                if (cart_id_array != '') {
+                                    form_data1.append("cart_id_array", cart_id_array);
+                                }
 
                                 $.ajax({
                                     url: url1,
@@ -1077,7 +1194,7 @@ $(document).ready(function () {
                                                 type: 'success',
                                                 title: 'Placed Successfully'
                                             });
-                                            window.location.href = './index';
+                                            window.location.href = './order_history?uid=' + order_uid + '&s=1';
                                         } else {
                                             $(btn).prop('disabled', false);
                                             $(btn).html('Online Payment');
@@ -1151,6 +1268,7 @@ $(document).ready(function () {
         if (selected_address_id) {
             shipping_fee = $('.shipping-fee').text().trim();
         }
+        let cart_id_array = $('#cartIdArray').val();
 
         if (selected_address_id) {
             Swal.fire({
@@ -1177,6 +1295,10 @@ $(document).ready(function () {
                     form_data.append("address_id", selected_address_id);
                     form_data.append("order_type", 'cod');
 
+                    if (cart_id_array != '') {
+                        form_data.append("cart_id_array", cart_id_array);
+                    }
+
                     let url = BASE_URL + "create_razorpay_order";
                     $.ajax({
                         url: url,
@@ -1193,7 +1315,8 @@ $(document).ready(function () {
                                     type: 'success',
                                     title: 'Placed Successfully'
                                 });
-                                window.location.href = './index';
+                                let order_uid = response.order_uid;
+                                window.location.href = './order_history?uid=' + order_uid + '&s=1';
                             } else {
                                 if (response.error_type == 1) {
                                     window.location.href = './cart';
@@ -1392,6 +1515,101 @@ $(document).ready(function () {
         })
     });
 
+    $(document).on('click', '.cart-checkbox-input', function () {
+        let total_cost = 0;
+        let cart_all_check_length = $('.cart-tr').find('.cart-checkbox-input').is(':checked');
+
+        if (cart_all_check_length) {
+            let new_total_price_cost = $('.total-price-total-hidden').val();
+            if (new_total_price_cost != 0) {
+                total_cost = $('.total-price-cost').html();
+            }
+            if ($(this).is(':checked')) {
+                $(this).attr('checked', 'checked');
+                let price = $(this).closest('tr').find('.total-display-price-amount').html();
+                total_cost = parseFloat(total_cost) + parseFloat(price);
+            } else {
+                $(this).removeAttr('checked');
+                let price = $(this).closest('tr').find('.total-display-price-amount').html();
+                total_cost = parseFloat(total_cost) - parseFloat(price);
+            }
+
+            $('.total-price-cost').html(total_cost)
+            $('.total-price-total-hidden').val(total_cost)
+        } else {
+            let cart_tr = $('.cart-tr');
+            let total_cost = 0;
+            for (var i = 0; i < cart_tr.length; i++) {
+                let stock_count = $(cart_tr[i]).find('.stock-count').val();
+                let display_price = $(cart_tr[i]).find('.stock-price').val();
+                total_cost = parseInt(total_cost) + parseInt(stock_count * display_price);
+            }
+
+            $('.total-price-cost').html(total_cost)
+            $('.total-price-total-hidden').val(0)
+        }
+    });
+
+    $(document).on("click", ".on-reg-password-eye-click", function () {
+        var pswd_type = $('.password-type').attr('type');
+        if (pswd_type == 'password') {
+            $(this).find(".eye-icon").removeClass('fa fa-eye-slash');
+            $(this).find(".eye-icon").addClass('fa fa-eye');
+            $('.password-type').attr('type', 'text')
+        } else {
+            $(this).find(".eye-icon").removeClass('fa fa-eye');
+            $(this).find(".eye-icon").addClass('fa fa-eye-slash');
+            $('.password-type').attr('type', 'password')
+        }
+    });
+
+    $(document).on('submit', '#contactUsForm', function (e) {
+        e.preventDefault();
+        let btn = $('#contactUsForm .contact-us-form-btn');
+        var name = $('#name').val();
+        var email = $('#email').val();
+        var subject = $('#subject').val();
+        var phone = $('#phone').val();
+        var message = $('#message').val();
+        $(btn).prop('disabled', true);
+        $(btn).html('Please Wait');
+        var ajaxurl = 'includes/functions.php',
+            data = {
+                'action': 'sendContactUs',
+                'name': name,
+                'email': email,
+                'subject': subject,
+                'phone': phone,
+                'message': message,
+            };
+        $.post(ajaxurl, data, function (response) {
+            console.log('response')
+            console.log(response)
+            $(btn).prop('disabled', false);
+            $(btn).html('Send Message');
+            if (response == 1) {
+                Swal.fire({
+                    title: '<div class="mt-4"><h5>Send Successfully</h5></div>',
+                    showCancelButton: false,
+                    width: 500,
+                    padding: 8,
+                    confirmButtonText: `Ok`,
+                    confirmButtonColor: "#e97730",
+                }).then((result) => {
+                    if (result.value) {
+                        $('#name').val('');
+                        $('#email').val('');
+                        $('#subject').val('');
+                        $('#phone').val('');
+                        $('#message').val('');
+                    }
+                });
+            } else {
+                Swal.fire({text: response, confirmButtonColor: "#e97730"});
+            }
+        })
+    });
+
 });
 
 function setCookie(cookie, value) {
@@ -1525,7 +1743,7 @@ function getPrdtDetailAddReviewContent() {
     })
 }
 
-function getPrdtSizeDetail(j) {
+function getPrdtSizeDetail() {
     let size = $('.prdt-detail-size-select').val();
     let design_id = $('.prdt-detail-design-select').val();
     var ajaxUrl = 'includes/templates/prdt_size_detail_content.php',
@@ -1534,6 +1752,7 @@ function getPrdtSizeDetail(j) {
             design_id: design_id,
             product_id: $('#productId').val(),
             vendor_id: $('#vendorId').val(),
+            cart_id: $('#cartId').val(),
         };
     $.post(ajaxUrl, data, function (response) {
         $('#prdtSizeDetailPriceContent').html($(response)[0]);
@@ -1566,8 +1785,14 @@ function getPrdtListItemContent(page) {
         data: data,
         cache: true,
         beforeSend: function () {
-            $('#prdtListItemDiv').html('')
-            $('#prdtListItemDiv1').html('')
+            let loading_html = ' <div class="col-md-12 align-items-center justify-content-center d-flex product-list-main-loader"\n' +
+                '                                     style="height: 300px">\n' +
+                '                                    <div class="spinner-border loading-color" role="status">\n' +
+                '                                        <span class="sr-only">Loading...</span>\n' +
+                '                                    </div>\n' +
+                '                                </div>'
+            $('#prdtListItemDiv').html(loading_html)
+            $('#prdtListItemDiv1').html(loading_html)
         },
         success: function (html) {
             if (view_mode == 'shop1') {
@@ -1581,10 +1806,15 @@ function getPrdtListItemContent(page) {
             let start = ((page - 1) * limit + 1);
             let end = (parseInt(start) + parseInt(list_length) - 1);
             let text = 'Showing ' + start + '-' + end + ' of ' + total_count + ' results';
+
             if (start == end) {
                 text = 'Showing ' + start + ' of ' + total_count + ' results';
             }
-            if (total_count > 0) {
+
+            if (total_count == 0) {
+                text = 'Showing 0 of ' + total_count + ' results';
+            }
+            if (total_count >= 0) {
                 $('.showing-item span').html(text);
             }
         }
@@ -1641,6 +1871,7 @@ function getColorWarrantList(btn) {
     let design_id = $('.prdt-detail-design-select').val();
     let product_size_id = $('#prdtSizeId').val();
     let vendor_id = $('#vendorId').val();
+    let cart_id = $('#cartId').val();
     var ajaxUrl = 'includes/templates/prdt_detail_color_warranty_select.php',
         data = {
             color_id: color_id,
@@ -1648,6 +1879,7 @@ function getColorWarrantList(btn) {
             prdt_size_color_id: prdt_size_color_id,
             design_id: design_id,
             vendor_id: vendor_id,
+            cart_id: cart_id,
         };
     $.post(ajaxUrl, data, function (html) {
         $('.color-warranty-select-div').html(html);
@@ -1714,20 +1946,6 @@ function prdtDetailPriceOfferPrice(price, offer_price) {
     } else {
         $('.product-details-price').html('<span class="new-price">₹' + price + '</span>')
     }
-}
-
-function getHomeContent() {
-    $.ajax({
-        type: "GET",
-        url: "includes/templates/home_content.php",
-        cache: true,
-        beforeSend: function () {
-            $('#homeContent').html('')
-        },
-        success: function (html) {
-            $('#homeContent').html(html)
-        }
-    })
 }
 
 function getColorImage() {

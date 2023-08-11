@@ -56,10 +56,12 @@ if ($result['status'] == 'Success') {
                     <div class="product-content">
                         <h3><a href="#"><?php echo $prdt_item['name']; ?></a></h3>
                         <div class="product-price">
-                            <?php if ($prdt_item['old_price']) { ?>
-                                <span class="old-price">₹<?php echo $prdt_item['old_price']; ?></span>
+                            <?php if ($prdt_item['offer_price'] > 0) { ?>
+                                <span class="old-price">₹<?php echo $prdt_item['price']; ?></span>
+                                <span class="new-price">₹<?php echo $prdt_item['offer_price']; ?></span>
+                            <?php } else { ?>
+                                <span class="new-price">₹<?php echo $prdt_item['price']; ?></span>
                             <?php } ?>
-                            <span class="new-price">₹<?php echo $prdt_item['display_price']; ?></span>
                         </div>
                     </div>
                 </div>
@@ -89,10 +91,12 @@ if ($result['status'] == 'Success') {
                     <div class="shop-list-content">
                         <h3><a href="product_details?id=<?php echo $prdt_item['uid']; ?>"><?php echo $prdt_item['name']; ?></a></h3>
                         <div class="product-price">
-                            <?php if ($prdt_item['old_price']) { ?>
-                                <span class="old-price">₹<?php echo $prdt_item['old_price']; ?></span>
+                            <?php if ($prdt_item['offer_price'] > 0) { ?>
+                                <span class="old-price">₹<?php echo $prdt_item['price']; ?></span>
+                                <span class="new-price">₹<?php echo $prdt_item['offer_price']; ?></span>
+                            <?php } else { ?>
+                                <span class="new-price">₹<?php echo $prdt_item['price']; ?></span>
                             <?php } ?>
-                            <span class="new-price">₹<?php echo $prdt_item['display_price']; ?></span>
                         </div>
                         <div class="product-rating">
                             <?php for ($i = 1; $i <= 5; $i++) {

@@ -1,4 +1,6 @@
-<?php include_once 'modal.php'; ?>
+<?php include_once 'modal.php';
+$page = basename($_SERVER['PHP_SELF']);
+?>
 <header class="header-area header-responsive-padding header-height-1" id="navBarId">
     <div class="header-top d-none d-lg-block bg-gray">
         <div class="container">
@@ -28,16 +30,40 @@
                         <nav>
                             <ul>
                                 <li>
-                                    <a href="index">HOME</a>
+                                    <a type="index" class="on-menu-nav-click <?php if ($page == 'index.php') {
+                                        echo "selected-main-header-menu";
+                                    } else {
+                                        echo "";
+                                    } ?>">HOME</a>
                                 </li>
                                 <li>
-                                    <a href="shop">SHOP</a>
+                                    <a type="shop" class="on-menu-nav-click <?php if ($page == 'shop.php') {
+                                        echo "selected-main-header-menu";
+                                    } else {
+                                        echo "";
+                                    } ?>">SHOP</a>
                                 </li>
                                 <li>
-                                    <a href="products">PRODUCTS</a>
+                                    <a type="products" class="on-menu-nav-click <?php if ($page == 'products.php') {
+                                        echo "selected-main-header-menu";
+                                    } else {
+                                        echo "";
+                                    } ?>">PRODUCTS</a>
                                 </li>
-                                <li><a href="about_us">ABOUT</a></li>
-                                <li><a href="contact_us">CONTACT US</a></li>
+                                <li>
+                                    <a type="about_us" class="on-menu-nav-click <?php if ($page == 'about_us.php') {
+                                        echo "selected-main-header-menu";
+                                    } else {
+                                        echo "";
+                                    } ?>">ABOUT</a>
+                                </li>
+                                <li>
+                                    <a type="contact_us" class="on-menu-nav-click <?php if ($page == 'contact_us.php') {
+                                        echo "selected-main-header-menu";
+                                    } else {
+                                        echo "";
+                                    } ?>">CONTACT US</a>
+                                </li>
                             </ul>
                         </nav>
                     </div>
@@ -45,7 +71,7 @@
                 <div class="col-lg-3 col-md-6 col-6">
                     <div class="header-action-wrap">
                         <div class="header-action-style">
-                            <a title="Account" href="account"><i class="pe-7s-user"></i></a>
+                            <a title="Account" type="account" class="on-menu-nav-click"><i class="pe-7s-user"></i></a>
                         </div>
 
                         <div id="cartCountContent"></div>
