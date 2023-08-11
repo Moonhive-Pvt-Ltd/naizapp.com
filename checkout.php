@@ -17,6 +17,16 @@ if (login_check($mysqli) == true) {
 
     $cart_query = mysqli_query($mysqli, "SELECT id FROM cart WHERE user_id = '$user_id' AND vendor_id = '$vendor_id'");
     if (mysqli_num_rows($cart_query)) { ?>
+        <script type="text/javascript">
+            function preventBack() {
+                window.history.forward();
+            }
+
+            setTimeout("preventBack()", 0);
+            window.onunload = function () {
+                null
+            };
+        </script>
         <!DOCTYPE html>
         <html lang="zxx">
         <?php include_once 'includes/header.php'; ?>
