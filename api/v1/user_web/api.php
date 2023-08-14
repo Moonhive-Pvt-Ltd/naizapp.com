@@ -192,7 +192,15 @@ class API extends REST
                                                                        GROUP_CONCAT(DISTINCT category.name SEPARATOR ', ') AS category
                                                                 FROM product 
                                                                 INNER JOIN (
-                                                                SELECT row_number()over(order by compare_price) auto_id,
+                                                                SELECT row_number()over(order by (CASE 
+                                                                        WHEN product_size_color_warranty.price IS NULL
+                                                                        THEN (CASE WHEN product_size.offer_price != 0 
+                                                                        THEN product_size.offer_price 
+                                                                        ELSE product_size.price END)
+                                                                        ELSE (CASE WHEN product_size_color_warranty.offer_price != 0 
+                                                                        THEN product_size_color_warranty.offer_price 
+                                                                        ELSE product_size_color_warranty.price END)
+                                                                        END)) auto_id,
                                                                        product_size.product_id AS prdt_id,
                                                                        product_size.price,
                                                                        product_size.offer_price,
@@ -262,7 +270,15 @@ class API extends REST
                                                                        GROUP_CONCAT(DISTINCT category.name SEPARATOR ', ') AS category
                                                                 FROM product 
                                                                 INNER JOIN (
-                                                                SELECT row_number()over(order by compare_price) auto_id,
+                                                                SELECT row_number()over(order by (CASE 
+                                                                        WHEN product_size_color_warranty.price IS NULL
+                                                                        THEN (CASE WHEN product_size.offer_price != 0 
+                                                                        THEN product_size.offer_price 
+                                                                        ELSE product_size.price END)
+                                                                        ELSE (CASE WHEN product_size_color_warranty.offer_price != 0 
+                                                                        THEN product_size_color_warranty.offer_price 
+                                                                        ELSE product_size_color_warranty.price END)
+                                                                        END)) auto_id,
                                                                        product_size.product_id AS prdt_id,
                                                                        product_size.price,
                                                                        product_size.offer_price,
@@ -331,7 +347,15 @@ class API extends REST
                                                                        GROUP_CONCAT(DISTINCT category.name SEPARATOR ', ') AS category
                                                                 FROM product 
                                                                 INNER JOIN (
-                                                                SELECT row_number()over(order by compare_price) auto_id,
+                                                                SELECT row_number()over(order by (CASE 
+                                                                        WHEN product_size_color_warranty.price IS NULL
+                                                                        THEN (CASE WHEN product_size.offer_price != 0 
+                                                                        THEN product_size.offer_price 
+                                                                        ELSE product_size.price END)
+                                                                        ELSE (CASE WHEN product_size_color_warranty.offer_price != 0 
+                                                                        THEN product_size_color_warranty.offer_price 
+                                                                        ELSE product_size_color_warranty.price END)
+                                                                        END)) auto_id,
                                                                        product_size.product_id AS prdt_id,
                                                                        product_size.price,
                                                                        product_size.offer_price,
@@ -400,7 +424,15 @@ class API extends REST
                                                                        GROUP_CONCAT(DISTINCT category.name SEPARATOR ', ') AS category
                                                                 FROM product 
                                                                 INNER JOIN (
-                                                                SELECT row_number()over(order by compare_price) auto_id,
+                                                                SELECT row_number()over(order by (CASE 
+                                                                        WHEN product_size_color_warranty.price IS NULL
+                                                                        THEN (CASE WHEN product_size.offer_price != 0 
+                                                                        THEN product_size.offer_price 
+                                                                        ELSE product_size.price END)
+                                                                        ELSE (CASE WHEN product_size_color_warranty.offer_price != 0 
+                                                                        THEN product_size_color_warranty.offer_price 
+                                                                        ELSE product_size_color_warranty.price END)
+                                                                        END)) auto_id,
                                                                        product_size.product_id AS prdt_id,
                                                                        product_size.price,
                                                                        product_size.offer_price,
@@ -469,7 +501,15 @@ class API extends REST
                                                                        GROUP_CONCAT(DISTINCT category.name SEPARATOR ', ') AS category
                                                                 FROM product 
                                                                 INNER JOIN (
-                                                                SELECT row_number()over(order by compare_price) auto_id,
+                                                                SELECT row_number()over(order by (CASE 
+                                                                        WHEN product_size_color_warranty.price IS NULL
+                                                                        THEN (CASE WHEN product_size.offer_price != 0 
+                                                                        THEN product_size.offer_price 
+                                                                        ELSE product_size.price END)
+                                                                        ELSE (CASE WHEN product_size_color_warranty.offer_price != 0 
+                                                                        THEN product_size_color_warranty.offer_price 
+                                                                        ELSE product_size_color_warranty.price END)
+                                                                        END)) auto_id,
                                                                        product_size.product_id AS prdt_id,
                                                                        product_size.price,
                                                                        product_size.offer_price,
@@ -1821,7 +1861,15 @@ class API extends REST
                             CASE WHEN product_price_tbl.warranty_price IS NOT NULL THEN product_price_tbl.warranty_offer_price ELSE product_price_tbl.offer_price END AS offer_price
                             FROM product 
                             INNER JOIN (
-                            SELECT row_number()over(order by compare_price) auto_id,
+                            SELECT row_number()over(order by (CASE 
+                            WHEN product_size_color_warranty.price IS NULL
+                            THEN (CASE WHEN product_size.offer_price != 0 
+                            THEN product_size.offer_price 
+                            ELSE product_size.price END)
+                            ELSE (CASE WHEN product_size_color_warranty.offer_price != 0 
+                            THEN product_size_color_warranty.offer_price 
+                            ELSE product_size_color_warranty.price END)
+                            END)) auto_id,
                                    product_size.product_id AS prdt_id,
                                    product_size.price,
                                    product_size.offer_price,
@@ -1849,11 +1897,6 @@ class API extends REST
                             ON product_size_color_warranty.product_size_color_id = product_size_color.id 
                             WHERE product_size.status = 'active' 
                             AND vendor_stock.vendor_id = '$vendor_id'";
-
-            if ($price_start != '' && $price_end != '') {
-                $query .= " AND (((product_size.price BETWEEN '$price_start' AND '$price_end') AND product_size.offer_price IN (0))
-                OR ((product_size.offer_price BETWEEN '$price_start' AND '$price_end') AND product_size.offer_price NOT IN (0)))";
-            }
 
             $query .= " ORDER BY auto_id DESC) AS product_price_tbl
                             ON product_price_tbl.prdt_id = product.id
@@ -1884,6 +1927,11 @@ class API extends REST
 
             if ($sort_by == 'avg_rating') {
                 $query .= " AND product_review.rating > 0";
+            }
+
+            if ($price_start != '' && $price_end != '') {
+                $query .= " AND (((product_price_tbl.price BETWEEN '$price_start' AND '$price_end') AND product_price_tbl.offer_price IN (0))
+                OR ((product_price_tbl.offer_price BETWEEN '$price_start' AND '$price_end') AND product_price_tbl.offer_price NOT IN (0)))";
             }
 
             $query .= " GROUP BY product.id";
