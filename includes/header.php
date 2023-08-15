@@ -45,6 +45,15 @@ switch ($page) {
     case 'terms_and_condition.php':
         $title = 'Terms & Conditions';
         break;
+    case 'privacy_policy.php':
+        $title = 'Privacy Policy';
+        break;
+    case 'shipping_policy.php':
+        $title = 'Shipping Policy';
+        break;
+    case 'refund_policy.php':
+        $title = 'Refund Policy';
+        break;
 }
 ?>
 
