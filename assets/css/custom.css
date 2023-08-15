@@ -330,6 +330,50 @@
     flex-wrap: unset !important;
 }
 
+.terms-policy {
+    font-family: "Poppins", sans-serif!important;
+    font-size: 14px!important;
+}
+
+.privacy-policy {
+    font-family: "Poppins", sans-serif!important;
+    font-size: 14px!important;
+}
+
+.privacy-policy-bold {
+    font-weight: bold!important;
+}
+
+.privacy-policy-link {
+    color: #1155cc!important;
+}
+
+.refund-policy {
+    font-family: "Poppins", sans-serif!important;
+    font-size: 14px!important;
+}
+
+.refund-policy-bold {
+    font-weight: bold!important;
+}
+
+.refund-policy-link {
+    color: #1155cc!important;
+}
+
+.shipping-policy {
+    font-family: "Poppins", sans-serif!important;
+    font-size: 14px!important;
+}
+
+.shipping-policy-bold {
+    font-weight: bold!important;
+}
+
+.shipping-policy-link {
+    color: #1155cc!important;
+}
+
 @media only screen and (max-width: 767px) {
     .grand-total-wrap .grand-total-btn span {
         font-size: 16px;
