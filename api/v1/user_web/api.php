@@ -12,9 +12,9 @@ require '../../../vendor/autoload.php';
 
 class API extends REST
 {
-    const ENV = "PROD";
-    const URL = self::ENV == 'DEV' ? 'http://localhost/naiz_web/' : 'https://admin.naizapp.com/';
-    const WEB_URL = self::ENV == 'DEV' ? 'http://localhost/naiz_webapp/' : 'https://naizapp.com/';
+    const ENV = "DEV";
+    const URL = self::ENV == 'DEV' ? 'http://localhost/admin.naizapp.com/' : 'https://admin.naizapp.com/';
+    const WEB_URL = self::ENV == 'DEV' ? 'http://localhost/naizapp.com/' : 'https://naizapp.com/';
 
     const EMAIL = 'naiztrading2021@gmail.com';
     const EMAIL_PASSWORD = 'xktiublkkpriftmm';
@@ -1483,17 +1483,21 @@ class API extends REST
         $limit = 15;
         $lower_limit = ($page - 1) * $limit;
 
-        if ($user_id) {
-            //get order list
+        if ($user_id) { 
+            //get order list 
+            // $orders = mysqli_query($this->mysqli, "SELECT SQL_CALC_FOUND_ROWS orders.*vendor.place FROM orders INNER JOIN vendor ON vendor.id = orders.vendor_id WHERE orders.user_id  = '$user_id' ORDER BY orders.timestamp DESC  LIMIT $lower_limit, $limit");
             $orders = mysqli_query($this->mysqli, "SELECT SQL_CALC_FOUND_ROWS orders.*,
-                                                                 vendor.place
-                                                          FROM orders
-                                                          INNER JOIN vendor
-                                                          ON vendor.id = orders.vendor_id
-                                                          WHERE orders.user_id = '$user_id'
-                                                          ORDER BY orders.timestamp DESC
-                                                          LIMIT $lower_limit, $limit");
+            vendor.place,order_shipping.order_id as logisticsid,order_shipping.orginalorderid
+     FROM orders
+     LEFT JOIN ORDER_SHIPPING 
 
+     ON order_shipping.orginalorderid = orders.id
+
+     INNER JOIN vendor
+     ON vendor.id = orders.vendor_id
+     WHERE orders.user_id = '$user_id'
+     ORDER BY orders.timestamp DESC
+     LIMIT $lower_limit, $limit");
             $count_rlt = mysqli_query($this->mysqli, "SELECT FOUND_ROWS() AS data_count");
             $count_rlt = mysqli_fetch_assoc($count_rlt);
             $data_count = $count_rlt['data_count'];
@@ -1503,6 +1507,8 @@ class API extends REST
             if (mysqli_num_rows($orders)) {
                 $order_rlt = array();
                 while ($row = $orders->fetch_assoc()) {
+                    $order_rlt['logisticsid'] = $row['logisticsid'];
+                    $order_rlt['orginalorderid'] = $row['orginalorderid'];
                     $order_rlt['uid'] = $row['uid'];
                     $order_rlt['total_cost'] = $row['total_cost'];
                     $order_rlt['status'] = ucwords(str_replace('_', ' ', $row['status']));

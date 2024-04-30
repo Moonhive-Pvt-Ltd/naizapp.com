@@ -9,10 +9,10 @@ $post = [
     'page' => $pagenum,
 ];
 $url = BASE_URL . "get_order_list";
-$result = getApiData($url, $post);
+$result = getApiData($url, $post); 
 if ($result['status'] == 'Success') {
     $total_pages = $result['total_pages'];
-//    print_r($result['orders']);
+    
 }
 ?>
 
@@ -47,7 +47,9 @@ if ($result['status'] == 'Success') {
                     ?>
                 </td>
                 <td>₹<?php echo $row['total_cost']; ?></td>
-                <td><a href="order_history?uid=<?php echo $row['uid']; ?>" class="check-btn sqr-btn" target="_blank">View</a>
+                <td><a href="order_history?uid=<?php echo $row['uid']; ?>" class="check-btn sqr-btn" target="_blank">View</a> <br>
+                <a class="check-btn sqr-btn open-shipping-track-click" id="<?php echo $row['orginalorderid']; ?>" data-logisticsid = "<?php echo $row['logisticsid']; ?>" >
+                <?php echo (!empty($row['orginalorderid']))?'Track':""; ?></a>
                 </td>
             </tr>
             <?php $i++;

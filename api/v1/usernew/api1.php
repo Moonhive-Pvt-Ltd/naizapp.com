@@ -1,0 +1,3320 @@
+<?php
+
+require_once("Rest.inc.php");
+
+require_once 'db_user.php';
+require_once 'auth.php';
+require_once 'config.php';
+
+use PHPMailer\PHPMailer\PHPMailer;
+use Firebase\JWT\JWT;
+use Firebase\JWT\Key;
+
+require '../../../vendor/autoload.php';
+
+class API extends REST
+{
+    const ENV = "DEV";
+    const URL = self::ENV == 'DEV' ? 'https://naizapp.moonhive-server.in.net/naiz_web/api/v1/usernew/' : 'https://admin.naizapp.com/';
+
+    const EMAIL = 'naiztrading2021@gmail.com';
+    const EMAIL_PASSWORD = 'xktiublkkpriftmm';
+    const RAZOR_KEY_ID = 'rzp_live_ZJ78Jg5QfGVwb8';
+    const RAZOR_KEY_SECRET = '61z64ax77EuwdgEwkTWPV02n';
+
+    const VENDOR_ID = 6;
+
+    const UPLOAD_DIR = "../../../vendor_data";
+
+    private $mysqli = NULL;
+    public $auth, $functions, $db_user, $config;
+
+    public function __construct()
+    {
+        parent::__construct();                // Init parent contructor
+	print_R("hi");
+	$this->auth = new auth();
+        $this->functions = new include_fns();
+        $this->config = $config = new config();
+        $this->db_user = new db_user();
+        $this->mysqli = new mysqli($config->getDBHOST(), $config->getDBUSER(), $config->getDBPASS(), $config->getDBDB());
+        print_R($this->mysqli); 
+    }
+
+    public function processApi()
+    {
+        $data = '';
+        $func = strtolower(trim(str_replace("/", "", $_REQUEST['rquest'])));
+        foreach ($this->_request as $param_name => $param_val) {
+            $data .= $param_name . '-' . $param_val . ',';
+        }
+        if ((int)method_exists($this, $func) > 0) {
+            $user_uid = isset($this->_request['uid']) ? $this->_request['uid'] : null;
+            if ($user_uid) {
+                $user_id = $this->db_user->getUserId($user_uid);
+            } else {
+                $user_id = 'null';
+            }
+            $this->db_user->add_api_data($user_id, $func, $data);
+
+            $this->$func();
+        }
+    }
+    public function user_register()
+    {
+        if ($this->get_request_method() != "POST") {
+            $this->response('', 406);
+        }
+
+        $uid = $this->create_random_string(16);
+        $full_name = isset($this->_request['full_name']) ? mysqli_real_escape_string($this->mysqli, $this->_request['full_name']) : null;
+        $email = isset($this->_request['email']) ? mysqli_real_escape_string($this->mysqli, $this->_request['email']) : null;
+        $mobile = isset($this->_request['mobile']) ? mysqli_real_escape_string($this->mysqli, $this->_request['mobile']) : null;
+        $pswd = isset($this->_request['password']) ? mysqli_real_escape_string($this->mysqli, $this->_request['password']) : null;
+        $ps = hash('sha512', $pswd);
+        $salt = hash('sha512', $ps);
+        $password = hash('sha512', $ps . $salt);
+          // Generate OTP
+        $is_verified =false;
+        if (!preg_match("^[_a-z0-9-]+(\.[_a-z0-9-]+)*@[a-z0-9-]+(\.[a-z0-9-]+)*(\.[a-z]{2,3})$^", $email)) {
+            $success = array('status' => "Failed", 'msg' => "Invalid Email");
+            $this->response($this->json($success), 200);
+        }
+
+        if (!preg_match('/^[0-9]{10}+$/', $mobile)) {
+            $success = array('status' => "Failed", 'msg' => "Invalid Mobile");
+            $this->response($this->json($success), 200);
+        }
+
+        $user = mysqli_query($this->mysqli, "SELECT id 
+                                                    FROM `user`
+                                                    WHERE (email = '$email'
+                                                    OR mobile = '$mobile')");
+        if (!mysqli_num_rows($user)) {
+            $otpstatus = $this->db_user->sendOtp($mobile);
+            if($otpstatus['status'] == 1)
+            {
+		   
+            $otp=$otpstatus['otp'];
+            $user_rlt = mysqli_query($this->mysqli, "INSERT INTO `user` (uid, full_name, email, mobile, password, salt, otp, is_verified)
+                                                            VALUES('$uid', '$full_name', '$email', '$mobile', '$password', '$salt', '$otp','$is_verified')")
+            }
+            if ($user_rlt) {
+                    // Return success with generated OTP
+                    $success = array('status' => "Success", 'msg' => "Registration Success", 'uid' => $uid, 'is_verified' => $is_verified );
+                    $this->response($this->json($success), 200);
+            } else {
+                if(!$otpstatus['status']){$msg="Registration failed,verify mobile number";}else{ $msg ="Registration Failed";}
+                $success = array('status' => "Failed", 'msg' => $msg);
+                $this->response($this->json($success), 200);
+            }
+        } else {
+            $success = array('status' => "Failed", 'msg' => "Email/Mobile Already Exists");
+            $this->response($this->json($success), 200);
+        }
+    }
+    public function otpVerification()
+    {
+        if ($this->get_request_method() != "POST") {
+            $this->response('', 406);
+        }
+
+        $uid = isset($this->_request['uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['uid']) : null;
+        $otp = isset($this->_request['otp']) ? mysqli_real_escape_string($this->mysqli, $this->_request['otp']) : null;
+        $user = mysqli_query($this->mysqli, "SELECT otp 
+                                                    FROM `user`
+                                                    WHERE (uid = '$uid')");
+        if (mysqli_num_rows($user)) {
+            $row = $user->fetch_assoc();
+            if($row['otp'] == $otp)
+            {
+                $user_rlt = mysqli_query($this->mysqli, "UPDATE `user` SET is_verified = 1 WHERE uid = '$uid'");
+            }
+            if ($user_rlt) {
+                    // Return success with generated OTP
+                    $success = array('status' => "Success", 'msg' => "Otp verified", 'uid' => $uid,'is_verified' => true);
+                    $this->response($this->json($success), 200);
+            } else {
+                $success = array('status' => "Failed", 'msg' =>"Otp verification failed");
+                $this->response($this->json($success), 200);
+            }
+        } else {
+                $success = array('status' => "Failed", 'msg' =>"Otp verification failed");
+                $this->response($this->json($success), 200);
+        }
+    }
+    public function resendOtp()
+    {
+        if ($this->get_request_method() != "POST") {
+            $this->response('', 406);
+        }
+        $uid = isset($this->_request['uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['uid']) : null;
+        $mobile = isset($this->_request['mobile']) ? mysqli_real_escape_string($this->mysqli, $this->_request['mobile']) : null;
+        $otpstatus = $this->db_user->sendOtp($mobile);
+        if($otpstatus['status'] == true)
+        {
+            $otp=$otpstatus['otp'];
+            $user_rlt = mysqli_query($this->mysqli, "UPDATE user SET otp = $otp WHERE uid = '$uid'");
+        }
+        if ($user_rlt) {
+            // Return success with generated OTP
+            $success = array('status' => "Success", 'msg' => "Otp resend successfully.", 'uid' => $uid,'is_verified' => 0);
+            $this->response($this->json($success), 200);
+        } else {
+            $success = array('status' => "Failed", 'msg' => "Resend failed.");
+            $this->response($this->json($success), 200);
+        }
+    }
+    public function user_login()
+    {
+        if ($this->get_request_method() != "POST") {
+            $this->response('', 406);
+        }
+
+        $email = isset($this->_request['email']) ? mysqli_real_escape_string($this->mysqli, $this->_request['email']) : null;
+        $pswd = isset($this->_request['password']) ? mysqli_real_escape_string($this->mysqli, $this->_request['password']) : null;
+        $ps = hash('sha512', $pswd);
+        $salt = hash('sha512', $ps);
+        $password = hash('sha512', $ps . $salt);
+
+        if (!preg_match("^[_a-z0-9-]+(\.[_a-z0-9-]+)*@[a-z0-9-]+(\.[a-z0-9-]+)*(\.[a-z]{2,3})$^", $email)) {
+            $success = array('status' => "Failed", 'msg' => "Invalid Email");
+            $this->response($this->json($success), 200);
+        }
+
+        $user = mysqli_query($this->mysqli, "SELECT *
+                                                    FROM `user`
+                                                    WHERE email = '$email'
+                                                    AND password = '$password'
+                                                    AND status = 'active'");
+        if (mysqli_num_rows($user)) {
+            $row = $user->fetch_assoc();
+            $user_data['uid'] = $row['uid'];
+            $user_data['full_name'] = $row['full_name'];
+            $user_data['mobile'] = $row['mobile'];
+            $user_data['pic'] = $row['image'] ? self::URL . 'vendor_data/user/' . $row['image'] : '';
+            $user_data['otp']=false;
+            if($row['is_verified'] == 0)
+            {
+                $otpstatus = $this->db_user->sendOtp($user_data['mobile']);
+                if($otpstatus['status'] == true)
+                {
+                    $otp=$otpstatus['otp'];
+                    $uid= $user_data['uid'];
+                    $user_rlt = mysqli_query($this->mysqli, "UPDATE user SET otp = $otp WHERE uid = '$uid'");
+                }
+                if ($user_rlt) {
+                    // Return success with generated OTP
+                    $user_data['otp'] = true;
+                }
+               
+            }
+            $success = array('status' => "Success", 'msg' => "Login Success", 'user' => $user_data);
+            $this->response($this->json($success), 200);
+            
+        } else {
+            $success = array('status' => "Failed", 'msg' => "Login Failed");
+            $this->response($this->json($success), 200);
+        }
+    }
+
+    public function get_vendor_list()
+    {
+        if ($this->get_request_method() != "POST") {
+            $this->response('', 406);
+        }
+
+        $uid = isset($this->_request['uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['uid']) : null;
+        $user_id = $this->db_user->isValidUserId($uid);
+
+        if ($user_id) {
+            $vendor_id = self::VENDOR_ID;
+            //get store list
+            $store_list = mysqli_query($this->mysqli, "SELECT * FROM vendor
+                                                              WHERE status = 'active'
+                                                              ORDER BY NULLIF(id, '$vendor_id')");
+            $store_list_data = array();
+            if (mysqli_num_rows($store_list)) {
+                while ($row5 = $store_list->fetch_assoc()) {
+                    $store_list_rlt['id'] = $row5['id'];
+                    $store_list_rlt['vendor_uid'] = $row5['uid'];
+                    $store_list_rlt['place'] = $row5['place'];
+                    $store_list_rlt['address'] = $row5['address'];
+                    $store_list_rlt['status'] = $row5['status'];
+                    array_push($store_list_data, $store_list_rlt);
+                }
+            }
+
+            $success = array('status' => "Success", 'msg' => "Vendors Fetched", 'store_list' => $store_list_data);
+            $this->response($this->json($success), 200);
+        } else {
+            $success = array('status' => "Failed", 'msg' => "User not found");
+            $this->response($this->json($success), 200);
+        }
+    }
+
+    public function get_home_page()
+    {
+        if ($this->get_request_method() != "POST") {
+            $this->response('', 406);
+        }
+
+        $uid = isset($this->_request['uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['uid']) : null;
+        $vendor_uid = isset($this->_request['vendor_uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['vendor_uid']) : null;
+        $user_id = $this->db_user->isValidUserId($uid);
+
+        if ($user_id) {
+            $vendor_id = $this->db_user->isValidVendorId($vendor_uid);
+
+            if ($vendor_id) {
+
+                //get new launches list
+                $new_launches = mysqli_query($this->mysqli, "SELECT product.*, 
+                                                                       product_image.image, 
+                                                                       top_product.type,
+                                                                       CASE WHEN product_price_tbl.warranty_price IS NOT NULL THEN product_price_tbl.warranty_price ELSE product_price_tbl.price END AS price,
+                                                                       CASE WHEN product_price_tbl.warranty_price IS NOT NULL THEN product_price_tbl.warranty_offer_price ELSE product_price_tbl.offer_price END AS offer_price,
+                                                                       GROUP_CONCAT(DISTINCT category.name SEPARATOR ', ') AS category
+                                                                FROM product 
+                                                                INNER JOIN (
+                                                                SELECT row_number()over(order by (CASE 
+                                                                        WHEN product_size_color_warranty.price IS NULL
+                                                                        THEN (CASE WHEN product_size.offer_price != 0 
+                                                                        THEN product_size.offer_price 
+                                                                        ELSE product_size.price END)
+                                                                        ELSE (CASE WHEN product_size_color_warranty.offer_price != 0 
+                                                                        THEN product_size_color_warranty.offer_price 
+                                                                        ELSE product_size_color_warranty.price END)
+                                                                        END)) auto_id,
+                                                                       product_size.product_id AS prdt_id,
+                                                                       product_size.price,
+                                                                       product_size.offer_price,
+                                                                       product_size_color.id AS product_size_color_id, 
+                                                                       product_size_color_warranty.id AS product_size_warranty_id, 
+                                                                       product_size_color_warranty.price AS warranty_price,
+                                                                       product_size_color_warranty.offer_price AS warranty_offer_price,
+                                                                       vendor_stock.vendor_id,
+                                                                       (CASE 
+                                                                        WHEN product_size_color_warranty.price IS NULL
+                                                                        THEN (CASE WHEN product_size.offer_price != 0 
+                                                                        THEN product_size.offer_price 
+                                                                        ELSE product_size.price END)
+                                                                        ELSE (CASE WHEN product_size_color_warranty.offer_price != 0 
+                                                                        THEN product_size_color_warranty.offer_price 
+                                                                        ELSE product_size_color_warranty.price END)
+                                                                        END) AS compare_price
+                                                                FROM product_size
+                                                                INNER JOIN vendor_stock
+                                                                ON vendor_stock.product_size_id = product_size.id
+                                                                LEFT JOIN product_size_color
+                                                                ON product_size_color.product_size_id = product_size.id
+                                                                LEFT JOIN product_size_color_warranty
+                                                                ON product_size_color_warranty.product_size_color_id = product_size_color.id 
+                                                                WHERE product_size.status = 'active' 
+                                                                AND vendor_stock.vendor_id = '$vendor_id' 
+                                                                ORDER BY auto_id DESC) AS product_price_tbl
+                                                                ON product_price_tbl.prdt_id = product.id
+                                                                INNER JOIN product_image 
+                                                                ON product_image.product_id = product.id 
+                                                                INNER JOIN top_product
+                                                                ON top_product.product_id = product.id
+                                                                LEFT JOIN product_category
+                                                                ON product_category.product_id = product.id
+                                                                LEFT JOIN category
+                                                                ON category.id = product_category.category_id
+                                                                AND category.status = 'active'
+                                                                WHERE product.status = 'active'
+                                                                AND top_product.type = 'launches'
+                                                                GROUP BY product.id 
+                                                                ORDER BY top_product.`timestamp` ASC
+                                                                LIMIT 2");
+
+                $new_launches_data = array();
+                if (mysqli_num_rows($new_launches)) {
+                    while ($row = $new_launches->fetch_assoc()) {
+                        if ($row['category']) {
+                            $new_launches_rlt['uid'] = $row['uid'];
+                            $new_launches_rlt['name'] = $row['name'];
+                            $new_launches_rlt['type'] = $row['type'];
+                            $new_launches_rlt['offer_price'] = $row['offer_price'];
+                            $new_launches_rlt['price'] = $row['price'];
+                            $new_launches_rlt['image'] = self::URL . 'vendor_data/product/' . $row['image'];
+                            array_push($new_launches_data, $new_launches_rlt);
+                        }
+                    }
+                }
+                $home_page_data['new_launches'] = $new_launches_data;
+
+                //get top picks list
+                $top_picks = mysqli_query($this->mysqli, "SELECT product.*, 
+                                                                       product_image.image, 
+                                                                       top_product.type,
+                                                                       CASE WHEN product_price_tbl.warranty_price IS NOT NULL THEN product_price_tbl.warranty_price ELSE product_price_tbl.price END AS price,
+                                                                       CASE WHEN product_price_tbl.warranty_price IS NOT NULL THEN product_price_tbl.warranty_offer_price ELSE product_price_tbl.offer_price END AS offer_price,
+                                                                       GROUP_CONCAT(DISTINCT category.name SEPARATOR ', ') AS category
+                                                                FROM product 
+                                                                INNER JOIN (
+                                                                SELECT row_number()over(order by (CASE 
+                                                                        WHEN product_size_color_warranty.price IS NULL
+                                                                        THEN (CASE WHEN product_size.offer_price != 0 
+                                                                        THEN product_size.offer_price 
+                                                                        ELSE product_size.price END)
+                                                                        ELSE (CASE WHEN product_size_color_warranty.offer_price != 0 
+                                                                        THEN product_size_color_warranty.offer_price 
+                                                                        ELSE product_size_color_warranty.price END)
+                                                                        END)) auto_id,
+                                                                       product_size.product_id AS prdt_id,
+                                                                       product_size.price,
+                                                                       product_size.offer_price,
+                                                                       product_size_color.id AS product_size_color_id, 
+                                                                       product_size_color_warranty.id AS product_size_warranty_id, 
+                                                                       product_size_color_warranty.price AS warranty_price,
+                                                                       product_size_color_warranty.offer_price AS warranty_offer_price,
+                                                                       vendor_stock.vendor_id,
+                                                                       (CASE 
+                                                                        WHEN product_size_color_warranty.price IS NULL
+                                                                        THEN (CASE WHEN product_size.offer_price != 0 
+                                                                        THEN product_size.offer_price 
+                                                                        ELSE product_size.price END)
+                                                                        ELSE (CASE WHEN product_size_color_warranty.offer_price != 0 
+                                                                        THEN product_size_color_warranty.offer_price 
+                                                                        ELSE product_size_color_warranty.price END)
+                                                                        END) AS compare_price
+                                                                FROM product_size
+                                                                INNER JOIN vendor_stock
+                                                                ON vendor_stock.product_size_id = product_size.id
+                                                                LEFT JOIN product_size_color
+                                                                ON product_size_color.product_size_id = product_size.id
+                                                                LEFT JOIN product_size_color_warranty
+                                                                ON product_size_color_warranty.product_size_color_id = product_size_color.id 
+                                                                WHERE product_size.status = 'active' 
+                                                                AND vendor_stock.vendor_id = '$vendor_id' 
+                                                                ORDER BY auto_id DESC) AS product_price_tbl
+                                                                ON product_price_tbl.prdt_id = product.id
+                                                                INNER JOIN product_image 
+                                                                ON product_image.product_id = product.id 
+                                                                INNER JOIN top_product
+                                                                ON top_product.product_id = product.id
+                                                                LEFT JOIN product_category
+                                                                ON product_category.product_id = product.id
+                                                                LEFT JOIN category
+                                                                ON category.id = product_category.category_id
+                                                                AND category.status = 'active'
+                                                                WHERE product.status = 'active'
+                                                                AND top_product.type = 'picks'
+                                                                GROUP BY product.id 
+                                                                ORDER BY top_product.`timestamp` ASC
+                                                                LIMIT 4");
+                $top_picks_data = array();
+                if (mysqli_num_rows($top_picks)) {
+                    while ($row1 = $top_picks->fetch_assoc()) {
+                        if ($row1['category']) {
+                            $top_picks_rlt['uid'] = $row1['uid'];
+                            $top_picks_rlt['name'] = $row1['name'];
+                            $top_picks_rlt['type'] = $row1['type'];
+                            $top_picks_rlt['offer_price'] = $row1['offer_price'];
+                            $top_picks_rlt['price'] = $row1['price'];
+                            $top_picks_rlt['image'] = self::URL . 'vendor_data/product/' . $row1['image'];
+                            array_push($top_picks_data, $top_picks_rlt);
+                        }
+                    }
+                }
+                $home_page_data['top_picks'] = $top_picks_data;
+
+                //get most viewed list
+                $most_viewed = mysqli_query($this->mysqli, "SELECT product.*, 
+                                                                       product_image.image, 
+                                                                       top_product.type,
+                                                                       CASE WHEN product_price_tbl.warranty_price IS NOT NULL THEN product_price_tbl.warranty_price ELSE product_price_tbl.price END AS price,
+                                                                       CASE WHEN product_price_tbl.warranty_price IS NOT NULL THEN product_price_tbl.warranty_offer_price ELSE product_price_tbl.offer_price END AS offer_price,
+                                                                       GROUP_CONCAT(DISTINCT category.name SEPARATOR ', ') AS category
+                                                                FROM product 
+                                                                INNER JOIN (
+                                                                SELECT row_number()over(order by (CASE 
+                                                                        WHEN product_size_color_warranty.price IS NULL
+                                                                        THEN (CASE WHEN product_size.offer_price != 0 
+                                                                        THEN product_size.offer_price 
+                                                                        ELSE product_size.price END)
+                                                                        ELSE (CASE WHEN product_size_color_warranty.offer_price != 0 
+                                                                        THEN product_size_color_warranty.offer_price 
+                                                                        ELSE product_size_color_warranty.price END)
+                                                                        END)) auto_id,
+                                                                       product_size.product_id AS prdt_id,
+                                                                       product_size.price,
+                                                                       product_size.offer_price,
+                                                                       product_size_color.id AS product_size_color_id, 
+                                                                       product_size_color_warranty.id AS product_size_warranty_id, 
+                                                                       product_size_color_warranty.price AS warranty_price,
+                                                                       product_size_color_warranty.offer_price AS warranty_offer_price,
+                                                                       vendor_stock.vendor_id,
+                                                                       (CASE 
+                                                                        WHEN product_size_color_warranty.price IS NULL
+                                                                        THEN (CASE WHEN product_size.offer_price != 0 
+                                                                        THEN product_size.offer_price 
+                                                                        ELSE product_size.price END)
+                                                                        ELSE (CASE WHEN product_size_color_warranty.offer_price != 0 
+                                                                        THEN product_size_color_warranty.offer_price 
+                                                                        ELSE product_size_color_warranty.price END)
+                                                                        END) AS compare_price
+                                                                FROM product_size
+                                                                INNER JOIN vendor_stock
+                                                                ON vendor_stock.product_size_id = product_size.id
+                                                                LEFT JOIN product_size_color
+                                                                ON product_size_color.product_size_id = product_size.id
+                                                                LEFT JOIN product_size_color_warranty
+                                                                ON product_size_color_warranty.product_size_color_id = product_size_color.id 
+                                                                WHERE product_size.status = 'active' 
+                                                                AND vendor_stock.vendor_id = '$vendor_id' 
+                                                                ORDER BY auto_id DESC) AS product_price_tbl
+                                                                ON product_price_tbl.prdt_id = product.id
+                                                                INNER JOIN product_image 
+                                                                ON product_image.product_id = product.id 
+                                                                INNER JOIN top_product
+                                                                ON top_product.product_id = product.id
+                                                                LEFT JOIN product_category
+                                                                ON product_category.product_id = product.id
+                                                                LEFT JOIN category
+                                                                ON category.id = product_category.category_id
+                                                                AND category.status = 'active'
+                                                                WHERE product.status = 'active'
+                                                                AND top_product.type = 'viewed'
+                                                                GROUP BY product.id 
+                                                                ORDER BY top_product.`timestamp` ASC
+                                                                LIMIT 10");
+                $most_viewed_data = array();
+                if (mysqli_num_rows($most_viewed)) {
+                    while ($row2 = $most_viewed->fetch_assoc()) {
+                        if ($row2['category']) {
+                            $most_viewed_rlt['uid'] = $row2['uid'];
+                            $most_viewed_rlt['name'] = $row2['name'];
+                            $most_viewed_rlt['type'] = $row2['type'];
+                            $most_viewed_rlt['offer_price'] = $row2['offer_price'];
+                            $most_viewed_rlt['price'] = $row2['price'];
+                            $most_viewed_rlt['image'] = self::URL . 'vendor_data/product/' . $row2['image'];
+                            array_push($most_viewed_data, $most_viewed_rlt);
+                        }
+                    }
+                }
+                $home_page_data['most_viewed'] = $most_viewed_data;
+
+                //get most popular list
+                $most_popular = mysqli_query($this->mysqli, "SELECT product.*, 
+                                                                       product_image.image, 
+                                                                       top_product.type,
+                                                                       CASE WHEN product_price_tbl.warranty_price IS NOT NULL THEN product_price_tbl.warranty_price ELSE product_price_tbl.price END AS price,
+                                                                       CASE WHEN product_price_tbl.warranty_price IS NOT NULL THEN product_price_tbl.warranty_offer_price ELSE product_price_tbl.offer_price END AS offer_price,
+                                                                       GROUP_CONCAT(DISTINCT category.name SEPARATOR ', ') AS category
+                                                                FROM product 
+                                                                INNER JOIN (
+                                                                SELECT row_number()over(order by (CASE 
+                                                                        WHEN product_size_color_warranty.price IS NULL
+                                                                        THEN (CASE WHEN product_size.offer_price != 0 
+                                                                        THEN product_size.offer_price 
+                                                                        ELSE product_size.price END)
+                                                                        ELSE (CASE WHEN product_size_color_warranty.offer_price != 0 
+                                                                        THEN product_size_color_warranty.offer_price 
+                                                                        ELSE product_size_color_warranty.price END)
+                                                                        END)) auto_id,
+                                                                       product_size.product_id AS prdt_id,
+                                                                       product_size.price,
+                                                                       product_size.offer_price,
+                                                                       product_size_color.id AS product_size_color_id, 
+                                                                       product_size_color_warranty.id AS product_size_warranty_id, 
+                                                                       product_size_color_warranty.price AS warranty_price,
+                                                                       product_size_color_warranty.offer_price AS warranty_offer_price,
+                                                                       vendor_stock.vendor_id,
+                                                                       (CASE 
+                                                                        WHEN product_size_color_warranty.price IS NULL
+                                                                        THEN (CASE WHEN product_size.offer_price != 0 
+                                                                        THEN product_size.offer_price 
+                                                                        ELSE product_size.price END)
+                                                                        ELSE (CASE WHEN product_size_color_warranty.offer_price != 0 
+                                                                        THEN product_size_color_warranty.offer_price 
+                                                                        ELSE product_size_color_warranty.price END)
+                                                                        END) AS compare_price
+                                                                FROM product_size
+                                                                INNER JOIN vendor_stock
+                                                                ON vendor_stock.product_size_id = product_size.id
+                                                                LEFT JOIN product_size_color
+                                                                ON product_size_color.product_size_id = product_size.id
+                                                                LEFT JOIN product_size_color_warranty
+                                                                ON product_size_color_warranty.product_size_color_id = product_size_color.id 
+                                                                WHERE product_size.status = 'active' 
+                                                                AND vendor_stock.vendor_id = '$vendor_id' 
+                                                                ORDER BY auto_id DESC) AS product_price_tbl
+                                                                ON product_price_tbl.prdt_id = product.id
+                                                                INNER JOIN product_image 
+                                                                ON product_image.product_id = product.id 
+                                                                INNER JOIN top_product
+                                                                ON top_product.product_id = product.id
+                                                                LEFT JOIN product_category
+                                                                ON product_category.product_id = product.id
+                                                                LEFT JOIN category
+                                                                ON category.id = product_category.category_id
+                                                                AND category.status = 'active'
+                                                                WHERE product.status = 'active'
+                                                                AND top_product.type = 'popular'
+                                                                GROUP BY product.id 
+                                                                ORDER BY top_product.`timestamp` ASC
+                                                                LIMIT 2");
+                $most_popular_data = array();
+                if (mysqli_num_rows($most_popular)) {
+                    while ($row3 = $most_popular->fetch_assoc()) {
+                        if ($row3['category']) {
+                            $most_popular_rlt['uid'] = $row3['uid'];
+                            $most_popular_rlt['name'] = $row3['name'];
+                            $most_popular_rlt['type'] = $row3['type'];
+                            $most_popular_rlt['offer_price'] = $row3['offer_price'];
+                            $most_popular_rlt['price'] = $row3['price'];
+                            $most_popular_rlt['image'] = self::URL . 'vendor_data/product/' . $row3['image'];
+                            array_push($most_popular_data, $most_popular_rlt);
+                        }
+                    }
+                }
+                $home_page_data['most_popular'] = $most_popular_data;
+
+                //get banner list
+                $banner_list = mysqli_query($this->mysqli, "SELECT * FROM banner
+                                                                  WHERE status = 'active'");
+                $banner_list_data = array();
+                if (mysqli_num_rows($banner_list)) {
+                    while ($row4 = $banner_list->fetch_assoc()) {
+                        $banner_list_rlt['image'] = self::URL . 'vendor_data/banner/' . $row4['image'];
+                        array_push($banner_list_data, $banner_list_rlt);
+                    }
+                }
+                $home_page_data['banner_list'] = $banner_list_data;
+
+                //get offer banner list
+                $offer_banner_list = mysqli_query($this->mysqli, "SELECT * FROM offer_banner
+                                                                        WHERE status = 'active'");
+                $offer_banner_list_data = array();
+                if (mysqli_num_rows($offer_banner_list)) {
+                    while ($row5 = $offer_banner_list->fetch_assoc()) {
+                        $offer_banner_list_rlt['image'] = self::URL . 'vendor_data/offer/' . $row5['image'];
+                        $offer_banner_list_rlt['title'] = $row5['title'];
+                        $offer_banner_list_rlt['description'] = $row5['description'];
+                        array_push($offer_banner_list_data, $offer_banner_list_rlt);
+                    }
+                }
+                $home_page_data['offer_banner_list'] = $offer_banner_list_data;
+
+                $success = array('status' => "Success", 'msg' => "Home Page Fetched", 'home_page' => $home_page_data);
+                $this->response($this->json($success), 200);
+            } else {
+                $success = array('status' => "Failed", 'msg' => "Vendor is not available");
+                $this->response($this->json($success), 200);
+            }
+        } else {
+            $success = array('status' => "Failed", 'msg' => "User not found");
+            $this->response($this->json($success), 200);
+        }
+    }
+
+    public function get_categories()
+    {
+        if ($this->get_request_method() != "POST") {
+            $this->response('', 406);
+        }
+
+        $uid = isset($this->_request['uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['uid']) : null;
+        $user_id = $this->db_user->isValidUserId($uid);
+
+        if ($user_id) {
+            $category = mysqli_query($this->mysqli, "SELECT * FROM category
+                                                            WHERE status = 'active'
+                                                            ORDER BY `timestamp` ASC");
+            $category_data = array();
+            if (mysqli_num_rows($category)) {
+                while ($row = $category->fetch_assoc()) {
+                    $category_rlt['uid'] = $row['uid'];
+                    $category_rlt['name'] = $row['name'];
+                    $category_rlt['image'] = self::URL . 'vendor_data/category/' . $row['image'];
+                    array_push($category_data, $category_rlt);
+                }
+            }
+
+            $success = array('status' => "Success", 'msg' => "Categories Fetched", 'category_data' => $category_data);
+            $this->response($this->json($success), 200);
+        } else {
+            $success = array('status' => "Failed", 'msg' => "User not found");
+            $this->response($this->json($success), 200);
+        }
+    }
+
+    public function get_product_details()
+    {
+        if ($this->get_request_method() != "POST") {
+            $this->response('', 406);
+        }
+
+        $uid = isset($this->_request['uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['uid']) : null;
+        $product_uid = isset($this->_request['product_uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['product_uid']) : null;
+        $vendor_uid = isset($this->_request['vendor_uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['vendor_uid']) : null;
+        $user_id = $this->db_user->isValidUserId($uid);
+
+        if ($user_id) {
+            $vendor_id = $this->db_user->isValidVendorId($vendor_uid);
+            if ($vendor_id) {
+                $product_id = $this->db_user->isValidActiveProductId($product_uid);
+                if ($product_id) {
+                    //get product details
+                    $product = mysqli_query($this->mysqli, "SELECT product.*,
+                                                                      GROUP_CONCAT(DISTINCT category.name SEPARATOR ', ') AS category,
+                                                                      GROUP_CONCAT(DISTINCT tag.name SEPARATOR ', #') AS tag     
+                                                               FROM product
+                                                               LEFT JOIN product_category
+                                                               ON product_category.product_id = product.id
+                                                               LEFT JOIN category
+                                                               ON category.id = product_category.category_id
+                                                               AND category.status = 'active'
+                                                               LEFT JOIN product_tag
+                                                               ON product_tag.product_id = product.id
+                                                               LEFT JOIN tag
+                                                               ON tag.id = product_tag.tag_id
+                                                               WHERE product.status = 'active'
+                                                               AND product.id = '$product_id'");
+
+                    if (mysqli_num_rows($product)) {
+                        $row = $product->fetch_assoc();
+                        $product_detail['name'] = $row['name'];
+                        $product_detail['description'] = $row['description'];
+                        $product_detail['material'] = $row['material'];
+                        $product_detail['brand'] = $row['brand'];
+                        $product_detail['code'] = $row['code'];
+                        $product_detail['batch_no'] = $row['batch_no'];
+                        $product_detail['category'] = $row['category'];
+                        $product_detail['tag'] = '#' . $row['tag'];
+
+                        if ($row['category']) {
+                        } else {
+                            $success = array('status' => "Failed", 'msg' => "Product not found");
+                            $this->response($this->json($success), 200);
+                        }
+                    }
+
+                    $product_image = mysqli_query($this->mysqli, "SELECT image    
+                                                                     FROM product_image
+                                                                     WHERE product_id = '$product_id'
+                                                                     ORDER BY `timestamp` ASC");
+                    $product_image_data = array();
+                    if (mysqli_num_rows($product_image)) {
+                        while ($row1 = $product_image->fetch_assoc()) {
+                            $product_image_data_rlt = self::URL . 'vendor_data/product/' . $row1['image'];
+                            array_push($product_image_data, $product_image_data_rlt);
+                        }
+                    }
+                    $product_detail['product_image'] = $product_image_data;
+
+                    $product_design_img_data = array();
+                    $product_design_img_rlt = mysqli_query($this->mysqli, "SELECT product_design.*,
+                                                                                         product_design_image.image 
+                                                                                  FROM product_design
+                                                                                  LEFT JOIN product_design_image
+                                                                                  ON product_design_image.product_design_id = product_design.id
+                                                                                  WHERE product_design.product_id = '$product_id'
+                                                                                  AND product_design.status = 'active'");
+                    if (mysqli_num_rows($product_design_img_rlt)) {
+                        while ($row_design_img = $product_design_img_rlt->fetch_assoc()) {
+                            $product_design_img_data1 = [];
+                            $design_id = $row_design_img['id'];
+                            $design_name = $row_design_img['name'];
+                            $search_index = array_search($design_id, array_column($product_design_img_data, 'id'));
+
+                            if ($search_index !== FALSE) {
+                            } else {
+                                $product_design_img_data1['id'] = $design_id;
+                                $product_design_img_data1['name'] = $design_name;
+                            }
+                            $product_design_img = self::URL . 'vendor_data/product/' . $row_design_img['image'];
+                            if ($search_index !== FALSE) {
+                                array_push($product_design_img_data[$search_index]['images'], $product_design_img);
+                            } else {
+                                $product_design_img_data1['images'][] = $product_design_img;
+                                array_push($product_design_img_data, $product_design_img_data1);
+                            }
+
+                        }
+                    }
+                    $product_detail['product_design_image'] = $product_design_img_data;
+
+                    $cart_product_rlt = mysqli_query($this->mysqli, "SELECT cart.*
+                                                                        FROM cart
+                                                                        LEFT JOIN product_size
+                                                                        ON product_size.id = cart.product_size_id
+                                                                        WHERE product_size.product_id = '$product_id'
+                                                                        AND cart.user_id = '$user_id'
+                                                                        AND cart.vendor_id = '$vendor_id'");
+
+                    $cart_product_data = array();
+                    if (mysqli_num_rows($cart_product_rlt)) {
+                        while ($cart_row = $cart_product_rlt->fetch_assoc()) {
+                            $cart_product_data_rlt['product_size_id'] = $cart_row['product_size_id'] ? $cart_row['product_size_id'] : '';
+                            $cart_product_data_rlt['color_id'] = $cart_row['color_id'] ? $cart_row['color_id'] : '';
+                            $cart_product_data_rlt['warranty_id'] = $cart_row['warranty_id'] ? $cart_row['warranty_id'] : '';
+                            $cart_product_data_rlt['product_design_id'] = $cart_row['product_design_id'] ? $cart_row['product_design_id'] : '';
+                            $cart_product_data_rlt['count'] = $cart_row['count'] ? $cart_row['count'] : '';
+                            array_push($cart_product_data, $cart_product_data_rlt);
+                        }
+                    }
+                    $product_detail['cart_product_data'] = $cart_product_data;
+
+
+                    $product_size = mysqli_query($this->mysqli, "SELECT product_size.*,
+                                                                           (CASE WHEN product_size.offer_price > 0 
+                                                                            THEN product_size.offer_price 
+                                                                            ELSE product_size.price END) AS display_price
+                                                                    FROM product_size
+                                                                    INNER JOIN vendor_stock
+                                                                    ON vendor_stock.product_size_id = product_size.id
+                                                                    WHERE product_size.product_id = '$product_id'
+                                                                    AND vendor_stock.vendor_id = '$vendor_id'
+                                                                    AND product_size.status = 'active'
+                                                                    GROUP BY product_size.id
+                                                                    ORDER BY display_price ASC");
+                    $product_size_data = array();
+                    if (mysqli_num_rows($product_size)) {
+                        while ($row2 = $product_size->fetch_assoc()) {
+                            $product_size_data_rlt['product_size_stock'] = 0;
+                            $product_size_data_rlt['product_cart_count'] = 0;
+
+                            $product_size_id = $row2['id'];
+                            $product_size_data_rlt['id'] = $row2['id'];
+                            $product_size_data_rlt['size'] = $row2['size'] . $row2['size_unit'];
+                            $product_size_data_rlt['unit_length'] = $row2['unit_length'] . $row2['unit_length_unit'];
+                            if ($row2['length'] && $row2['width'] && $row2['height']) {
+                                $product_size_data_rlt['dimensions'] = $row2['length'] . $row2['length_unit'] . 'X' . $row2['width'] . $row2['width_unit'] . 'X' . $row2['height'] . $row2['height_unit'];
+                            } else if ($row2['length'] && $row2['width']) {
+                                $product_size_data_rlt['dimensions'] = $row2['length'] . $row2['length_unit'] . 'X' . $row2['width'] . $row2['width_unit'];
+                            } else if ($row2['width'] && $row2['height']) {
+                                $product_size_data_rlt['dimensions'] = $row2['width'] . $row2['width_unit'] . 'X' . $row2['height'] . $row2['height_unit'];
+                            } else if ($row2['length'] && $row2['height']) {
+                                $product_size_data_rlt['dimensions'] = $row2['length'] . $row2['length_unit'] . 'X' . $row2['height'] . $row2['height_unit'];
+                            } else if ($row2['length']) {
+                                $product_size_data_rlt['dimensions'] = $row2['length'] . $row2['length_unit'];
+                            } else if ($row2['width']) {
+                                $product_size_data_rlt['dimensions'] = $row2['width'] . $row2['width_unit'];
+                            } else if ($row2['height']) {
+                                $product_size_data_rlt['dimensions'] = $row2['height'] . $row2['height_unit'];
+                            } else {
+                                $product_size_data_rlt['dimensions'] = '';
+                            }
+                            $product_size_data_rlt['thickness'] = $row2['thickness'] . $row2['thickness_unit'];
+                            $product_size_data_rlt['weight'] = $row2['weight'] . $row2['weight_unit'];
+                            $product_size_data_rlt['diameter'] = $row2['diameter'] . $row2['diameter_unit'];
+                            $product_size_data_rlt['display_original_price'] = $row2['price'];
+                            $product_size_data_rlt['display_offer_price'] = $row2['offer_price'];
+                            $product_size_data_rlt['display_price'] = $row2['display_price'];
+
+                            $product_size_color_rlt = mysqli_query($this->mysqli, "SELECT color.id AS color_id,
+                                                                                             color.name,
+                                                                                             color.code,
+                                                                                             vendor_stock.stock,
+                                                                                             cart.count,
+                                                                                             product_size_color.id AS prdt_size_color_id
+                                                                                      FROM product_size_color
+                                                                                      LEFT JOIN color
+                                                                                      ON color.id = product_size_color.color_id
+                                                                                      LEFT JOIN vendor_stock
+                                                                                      ON vendor_stock.product_size_id = product_size_color.product_size_id
+                                                                                      AND vendor_stock.color_id = product_size_color.color_id
+                                                                                      AND vendor_stock.vendor_id = '$vendor_id'
+                                                                                      LEFT JOIN cart
+                                                                                      ON cart.product_size_id = vendor_stock.product_size_id
+                                                                                      AND cart.user_id = '$user_id'
+                                                                                      AND cart.color_id = vendor_stock.color_id
+                                                                                      AND cart.vendor_id = '$vendor_id'
+                                                                                      WHERE product_size_color.product_size_id = '$product_size_id'
+                                                                                      GROUP BY color_id");
+
+                            $product_color_data = array();
+                            if (mysqli_num_rows($product_size_color_rlt)) {
+                                $product_size_data_rlt['color_check'] = 1;
+                                while ($row3 = $product_size_color_rlt->fetch_assoc()) {
+                                    $prdt_size_color_id = $row3['prdt_size_color_id'];
+                                    $product_color_data_rlt['color_id'] = $row3['color_id'];
+                                    $color_id = $row3['color_id'];
+                                    $product_color_data_rlt['color_name'] = $row3['name'];
+                                    $product_color_data_rlt['color_code'] = $row3['code'];
+                                    $color_stock = $row3['stock'] ? $row3['stock'] : 0;
+                                    $product_color_data_rlt['stock'] = $color_stock;
+                                    $product_color_data_rlt['count'] = $row3['count'] ? $row3['count'] : 0;
+
+                                    $product_size_color_warranty_rlt = mysqli_query($this->mysqli, "SELECT product_size_color_warranty.*,
+                                                                                                                  warranty.warranty
+                                                                                                          FROM product_size_color_warranty
+                                                                                                          INNER JOIN warranty
+                                                                                                          ON warranty.id = product_size_color_warranty.warranty_id
+                                                                                                          WHERE product_size_color_warranty.product_size_color_id = '$prdt_size_color_id'");
+
+                                    $product_color_warranty_data = array();
+                                    if (mysqli_num_rows($product_size_color_warranty_rlt)) {
+                                        while ($row_warranty = $product_size_color_warranty_rlt->fetch_assoc()) {
+                                            $product_color_warranty_data1['warranty_id'] = $row_warranty['warranty_id'];
+                                            $product_color_warranty_data1['warranty_name'] = $row_warranty['warranty'];
+                                            $product_color_warranty_data1['display_original_color_price'] = $row_warranty['price'];
+                                            $product_color_warranty_data1['display_offer_color_price'] = $row_warranty['offer_price'];
+                                            $product_color_warranty_data1['display_color_price'] = $row_warranty['offer_price'] > 0 ? $row_warranty['offer_price'] : $row_warranty['price'];
+                                            array_push($product_color_warranty_data, $product_color_warranty_data1);
+                                        }
+                                    }
+
+                                    $product_color_img_data = array();
+                                    $product_color_img_rlt = mysqli_query($this->mysqli, "SELECT product_color_image.image
+                                                                                                 FROM product_color_image
+                                                                                                 INNER JOIN color
+                                                                                                 ON color.id = product_color_image.color_id
+                                                                                                 INNER JOIN product
+                                                                                                 ON product.id = product_color_image.product_id
+                                                                                                 INNER JOIN product_size
+                                                                                                 ON product_size.product_id = product.id
+                                                                                                 AND product_size.id = '$product_size_id'
+                                                                                                 AND color.id = '$color_id'");
+                                    if (mysqli_num_rows($product_color_img_rlt)) {
+                                        while ($row_color_img = $product_color_img_rlt->fetch_assoc()) {
+                                            $product_color_img_data1 = self::URL . 'vendor_data/product/' . $row_color_img['image'];
+                                            array_push($product_color_img_data, $product_color_img_data1);
+                                        }
+                                    }
+
+                                    $product_color_data_rlt['color_image_data'] = $product_color_img_data;
+                                    $product_color_data_rlt['warranty_data'] = $product_color_warranty_data;
+                                    array_push($product_color_data, $product_color_data_rlt);
+                                }
+                            } else {
+                                $product_size_data_rlt['color_check'] = 0;
+                                $product_size_stock_rlt = mysqli_query($this->mysqli, "SELECT vendor_stock.stock,
+                                                                                                 cart.count  
+                                                                                         FROM product_size
+                                                                                         LEFT JOIN vendor_stock
+                                                                                         ON vendor_stock.product_size_id = product_size.id
+                                                                                         AND vendor_stock.vendor_id = '$vendor_id'
+                                                                                         LEFT JOIN cart
+                                                                                         ON cart.product_size_id = vendor_stock.product_size_id
+                                                                                         AND cart.user_id = '$user_id'
+                                                                                         AND cart.vendor_id = '$vendor_id'
+                                                                                         AND cart.product_size_id = '$product_size_id'
+                                                                                         WHERE product_size.id = '$product_size_id'");
+                                if (mysqli_num_rows($product_size_stock_rlt)) {
+                                    $stock_row = $product_size_stock_rlt->fetch_assoc();
+                                    $product_size_data_rlt['product_size_stock'] = $stock_row['stock'] ? $stock_row['stock'] : 0;
+                                    $product_size_data_rlt['product_cart_count'] = $stock_row['count'] ? $stock_row['count'] : 0;
+                                }
+                            }
+                            $product_size_data_rlt['color_stock'] = $product_color_data;
+
+                            array_push($product_size_data, $product_size_data_rlt);
+                        }
+                    }
+                    $product_detail['product_size'] = $product_size_data;
+
+                    $prdt_review_query = mysqli_query($this->mysqli, "SELECT COUNT(id) AS count,
+                                                                             SUM(rating) AS rating
+                                                                   FROM product_review
+                                                                   WHERE product_id = '$product_id'
+                                                                   ORDER BY `timestamp` DESC");
+                    $review_count = $prdt_review_query->fetch_assoc();
+                    $total_review_user = $review_count['count'];
+                    $total_rating = $review_count['rating'];
+
+                    $prdt_review = mysqli_query($this->mysqli, "SELECT product_review.*,
+                                                                          `user`.full_name,
+                                                                          `user`.uid
+                                                                   FROM product_review
+                                                                   INNER JOIN `user`
+                                                                   ON `user`.id = product_review.user_id
+                                                                   WHERE product_review.product_id = '$product_id'
+                                                                   ORDER BY product_review.timestamp DESC
+                                                                   LIMIT 5");
+                    $product_review_data = array();
+                    if (mysqli_num_rows($prdt_review)) {
+                        while ($row4 = $prdt_review->fetch_assoc()) {
+                            $product_review_rlt['name'] = $row4['full_name'];
+                            $product_review_rlt['user_uid'] = $row4['uid'];
+                            $product_review_rlt['product_review_id'] = $row4['id'];
+                            $product_review_rlt['review'] = $row4['review'];
+                            $product_review_rlt['rating'] = $row4['rating'];
+                            date_default_timezone_set("Asia/Kolkata");
+                            $time = new DateTime($row4['timestamp'], new DateTimeZone('UTC'));
+                            $time->setTimezone(new DateTimezone('Asia/Kolkata'));
+                            $product_review_rlt['date'] = $time->format('d M, y');
+                            array_push($product_review_data, $product_review_rlt);
+                        }
+                    }
+                    $average = $total_review_user > 0 ? $total_rating / $total_review_user : 0;
+                    $product_detail['product_review'] = $product_review_data;
+                    $product_detail['total_review_count'] = $total_review_user;
+                    $product_detail['product_rating'] = round($average, 1);
+
+                    $success = array('status' => "Success", 'msg' => "Home Page Fetched", 'product_detail' => $product_detail);
+                    $this->response($this->json($success), 200);
+                } else {
+                    $success = array('status' => "Failed", 'msg' => "Product not found");
+                    $this->response($this->json($success), 200);
+                }
+            } else {
+                $success = array('status' => "Failed", 'msg' => "Vendor is not available");
+                $this->response($this->json($success), 200);
+            }
+        } else {
+            $success = array('status' => "Failed", 'msg' => "User not found");
+            $this->response($this->json($success), 200);
+        }
+    }
+
+    public function search_products()
+    {
+        if ($this->get_request_method() != "POST") {
+            $this->response('', 406);
+        }
+
+        $uid = isset($this->_request['uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['uid']) : null;
+        $product_name = isset($this->_request['search']) ? mysqli_real_escape_string($this->mysqli, $this->_request['search']) : null;
+        $vendor_uid = isset($this->_request['vendor_uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['vendor_uid']) : null;
+        $user_id = $this->db_user->isValidUserId($uid);
+
+        if ($user_id) {
+            $vendor_id = $this->db_user->isValidVendorId($vendor_uid);
+
+            if ($vendor_id) {
+                //get searched product
+                $product_data = array();
+                if ($product_name) {
+                    $product = mysqli_query($this->mysqli, "SELECT product.uid, 
+                                                                          product.`name`,
+                                                                          GROUP_CONCAT(DISTINCT category.name SEPARATOR ', ') AS category        
+                                                                  FROM product
+                                                                  INNER JOIN product_size
+                                                                  ON product_size.product_id = product.id
+                                                                  INNER JOIN vendor_stock
+                                                                  ON vendor_stock.product_size_id = product_size.id
+                                                                  LEFT JOIN product_category
+                                                                  ON product_category.product_id = product.id
+                                                                  LEFT JOIN category
+                                                                  ON category.id = product_category.category_id
+                                                                  AND category.status = 'active'
+                                                                  WHERE product.status = 'active'
+                                                                  AND product.`name` LIKE '%$product_name%'
+                                                                  AND vendor_stock.vendor_id = '$vendor_id'
+                                                                  GROUP BY product.id
+                                                                  ORDER BY product.`name` ASC");
+                    if (mysqli_num_rows($product)) {
+                        while ($row = $product->fetch_assoc()) {
+                            if ($row['category']) {
+                                $product_rlt['uid'] = $row['uid'];
+                                $product_rlt['name'] = $row['name'];
+                                array_push($product_data, $product_rlt);
+                            }
+                        }
+                    }
+                }
+                $success = array('status' => "Success", 'msg' => "Searched Product Fetched", 'searched_product' => $product_data);
+                $this->response($this->json($success), 200);
+            } else {
+                $success = array('status' => "Failed", 'msg' => "Vendor is not available");
+                $this->response($this->json($success), 200);
+            }
+        } else {
+            $success = array('status' => "Failed", 'msg' => "User not found");
+            $this->response($this->json($success), 200);
+        }
+    }
+
+    public function add_user_address()
+    {
+        if ($this->get_request_method() != "POST") {
+            $this->response('', 406);
+        }
+
+        $uid = isset($this->_request['uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['uid']) : null;
+        $full_name = isset($this->_request['full_name']) ? mysqli_real_escape_string($this->mysqli, $this->_request['full_name']) : null;
+        $phone_number = isset($this->_request['phone_number']) ? mysqli_real_escape_string($this->mysqli, $this->_request['phone_number']) : null;
+        $city_district = isset($this->_request['city_district']) ? mysqli_real_escape_string($this->mysqli, $this->_request['city_district']) : null;
+        $zip = isset($this->_request['zip']) ? mysqli_real_escape_string($this->mysqli, $this->_request['zip']) : null;
+        $address = isset($this->_request['address']) ? mysqli_real_escape_string($this->mysqli, $this->_request['address']) : null;
+        $type = isset($this->_request['type']) ? mysqli_real_escape_string($this->mysqli, $this->_request['type']) : null;
+
+        $user_id = $this->db_user->isValidUserId($uid);
+        if ($user_id) {
+            $user_address_rlt = mysqli_query($this->mysqli, "INSERT INTO user_address (user_id, full_name, phone_number, 
+                                                                                             city_district, zip, address, `type`)
+                                                                    VALUES('$user_id', '$full_name', '$phone_number', 
+                                                                           '$city_district', '$zip', '$address', '$type')");
+            if ($user_address_rlt) {
+                $success = array('status' => "Success", 'msg' => "Address Added Successfully");
+                $this->response($this->json($success), 200);
+            } else {
+                $success = array('status' => "Failed", 'msg' => "Failed to Add Address");
+                $this->response($this->json($success), 200);
+            }
+        } else {
+            $success = array('status' => "Failed", 'msg' => "User not found");
+            $this->response($this->json($success), 200);
+        }
+    }
+
+    public function update_user_address()
+    {
+        if ($this->get_request_method() != "POST") {
+            $this->response('', 406);
+        }
+
+        $uid = isset($this->_request['uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['uid']) : null;
+        $address_id = isset($this->_request['address_id']) ? mysqli_real_escape_string($this->mysqli, $this->_request['address_id']) : null;
+        $full_name = isset($this->_request['full_name']) ? mysqli_real_escape_string($this->mysqli, $this->_request['full_name']) : null;
+        $phone_number = isset($this->_request['phone_number']) ? mysqli_real_escape_string($this->mysqli, $this->_request['phone_number']) : null;
+        $city_district = isset($this->_request['city_district']) ? mysqli_real_escape_string($this->mysqli, $this->_request['city_district']) : null;
+        $zip = isset($this->_request['zip']) ? mysqli_real_escape_string($this->mysqli, $this->_request['zip']) : null;
+        $address = isset($this->_request['address']) ? mysqli_real_escape_string($this->mysqli, $this->_request['address']) : null;
+        $type = isset($this->_request['type']) ? mysqli_real_escape_string($this->mysqli, $this->_request['type']) : null;
+        $shipping_fee = isset($this->_request['shipping_fee']) ? mysqli_real_escape_string($this->mysqli, $this->_request['shipping_fee']) : null;
+
+        $user_id = $this->db_user->isValidUserId($uid);
+        if ($user_id) {
+            $user_address_id = $this->db_user->isValidUserAddressId($user_id, $address_id);
+            if ($user_address_id) {
+                $user_address_rlt = mysqli_query($this->mysqli, "UPDATE user_address 
+                                                                        SET full_name = '$full_name',
+                                                                            phone_number = '$phone_number',
+                                                                            city_district = '$city_district',
+                                                                            zip = '$zip',
+                                                                            address = '$address',
+                                                                            `type` = '$type'
+                                                                        WHERE user_id = '$user_id'
+                                                                        AND id = '$address_id'");
+                if ($user_address_rlt) {
+                    $updated_user_address['id'] = $address_id;
+                    $updated_user_address['full_name'] = $full_name;
+                    $updated_user_address['phone_number'] = $phone_number;
+                    $updated_user_address['city_district'] = $city_district;
+                    $updated_user_address['pincode'] = $zip;
+                    $updated_user_address['address'] = $address;
+                    $updated_user_address['type'] = $type;
+                    $updated_user_address['shipping_fee'] = $shipping_fee;
+
+                    $success = array('status' => "Success", 'msg' => "Address Updated Successfully", 'updated_address' => $updated_user_address);
+                    $this->response($this->json($success), 200);
+                } else {
+                    $success = array('status' => "Failed", 'msg' => "Failed to Update Address");
+                    $this->response($this->json($success), 200);
+                }
+            } else {
+                $success = array('status' => "Failed", 'msg' => "Unable to edit address");
+                $this->response($this->json($success), 200);
+            }
+        } else {
+            $success = array('status' => "Failed", 'msg' => "User not found");
+            $this->response($this->json($success), 200);
+        }
+    }
+
+    public function get_user_address()
+    {
+        if ($this->get_request_method() != "POST") {
+            $this->response('', 406);
+        }
+
+        $uid = isset($this->_request['uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['uid']) : null;
+        $vendor_uid = isset($this->_request['vendor_uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['vendor_uid']) : null;
+        $user_id = $this->db_user->isValidUserId($uid);
+
+        if ($user_id) {
+            $vendor_id = $this->db_user->isValidVendorId($vendor_uid);
+            if ($vendor_id) {
+                $user_address = mysqli_query($this->mysqli, "SELECT user_address.*,
+                                                                          vendor_pincode.shipping_fee 
+                                                                   FROM user_address
+                                                                   LEFT JOIN vendor_pincode
+                                                                   ON vendor_pincode.pincode = user_address.zip
+                                                                   AND vendor_pincode.vendor_id = '$vendor_id'
+                                                                   AND vendor_pincode.status = 'active'
+                                                                   WHERE user_address.status = 'active'
+                                                                   AND user_address.user_id = '$user_id'
+                                                                   ORDER BY user_address.`timestamp` DESC");
+                $user_address_data = array();
+                if (mysqli_num_rows($user_address)) {
+                    while ($row = $user_address->fetch_assoc()) {
+                        $user_address_rlt['id'] = $row['id'];
+                        $user_address_rlt['full_name'] = $row['full_name'];
+                        $user_address_rlt['phone_number'] = $row['phone_number'];
+                        $user_address_rlt['city_district'] = $row['city_district'];
+                        $user_address_rlt['pincode'] = $row['zip'];
+                        $user_address_rlt['address'] = $row['address'];
+                        $user_address_rlt['type'] = $row['type'];
+                        $user_address_rlt['shipping_fee'] = $row['shipping_fee'] ? $row['shipping_fee'] : '';
+                        array_push($user_address_data, $user_address_rlt);
+                    }
+                }
+
+                $success = array('status' => "Success", 'msg' => "Address Fetched", 'user_address_data' => $user_address_data);
+                $this->response($this->json($success), 200);
+            } else {
+                $success = array('status' => "Failed", 'msg' => "Vendor not found");
+                $this->response($this->json($success), 200);
+            }
+        } else {
+            $success = array('status' => "Failed", 'msg' => "User not found");
+            $this->response($this->json($success), 200);
+        }
+    }
+
+    public function get_category_products()
+    {
+        if ($this->get_request_method() != "POST") {
+            $this->response('', 406);
+        }
+
+        $uid = isset($this->_request['uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['uid']) : null;
+        $category_uid = isset($this->_request['category_uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['category_uid']) : null;
+        $vendor_uid = isset($this->_request['vendor_uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['vendor_uid']) : null;
+        $page = isset($this->_request['page']) ? mysqli_real_escape_string($this->mysqli, $this->_request['page']) : 1;
+
+        $limit = 15;
+        $lower_limit = ($page - 1) * $limit;
+
+        $user_id = $this->db_user->isValidUserId($uid);
+
+        if ($user_id) {
+            $vendor_id = $this->db_user->isValidVendorId($vendor_uid);
+            if ($vendor_id) {
+                $category_id = $this->db_user->isValidCategoryId($category_uid);
+                if ($category_id) {
+                    //get category products
+                    $product_query = "SELECT SQL_CALC_FOUND_ROWS product.*, 
+                                                                 product_image.image, 
+                                                                 CASE WHEN product_price_tbl.warranty_price IS NOT NULL THEN product_price_tbl.warranty_price ELSE product_price_tbl.price END AS price,
+                                                                 CASE WHEN product_price_tbl.warranty_price IS NOT NULL THEN product_price_tbl.warranty_offer_price ELSE product_price_tbl.offer_price END AS offer_price
+                                                                FROM product 
+                                                                INNER JOIN (
+                                                                SELECT row_number()over(order by (CASE 
+                                                                        WHEN product_size_color_warranty.price IS NULL
+                                                                        THEN (CASE WHEN product_size.offer_price != 0 
+                                                                        THEN product_size.offer_price 
+                                                                        ELSE product_size.price END)
+                                                                        ELSE (CASE WHEN product_size_color_warranty.offer_price != 0 
+                                                                        THEN product_size_color_warranty.offer_price 
+                                                                        ELSE product_size_color_warranty.price END)
+                                                                        END)) auto_id,
+                                                                       product_size.product_id AS prdt_id,
+                                                                       product_size.price,
+                                                                       product_size.offer_price,
+                                                                       product_size_color.id AS product_size_color_id, 
+                                                                       product_size_color_warranty.id AS product_size_warranty_id, 
+                                                                       product_size_color_warranty.price AS warranty_price,
+                                                                       product_size_color_warranty.offer_price AS warranty_offer_price,
+                                                                       vendor_stock.vendor_id,
+                                                                       (CASE 
+                                                                        WHEN product_size_color_warranty.price IS NULL
+                                                                        THEN (CASE WHEN product_size.offer_price != 0 
+                                                                        THEN product_size.offer_price 
+                                                                        ELSE product_size.price END)
+                                                                        ELSE (CASE WHEN product_size_color_warranty.offer_price != 0 
+                                                                        THEN product_size_color_warranty.offer_price 
+                                                                        ELSE product_size_color_warranty.price END)
+                                                                        END) AS compare_price
+                                                                FROM product_size
+                                                                INNER JOIN vendor_stock
+                                                                ON vendor_stock.product_size_id = product_size.id
+                                                                LEFT JOIN product_size_color
+                                                                ON product_size_color.product_size_id = product_size.id
+                                                                LEFT JOIN product_size_color_warranty
+                                                                ON product_size_color_warranty.product_size_color_id = product_size_color.id 
+                                                                WHERE product_size.status = 'active' 
+                                                                AND vendor_stock.vendor_id = '$vendor_id' 
+                                                                ORDER BY auto_id DESC) AS product_price_tbl
+                                                                ON product_price_tbl.prdt_id = product.id
+                                                                INNER JOIN product_image 
+                                                                ON product_image.product_id = product.id
+                                                                INNER JOIN product_category
+                                                                ON product_category.product_id = product.id
+                                                                INNER JOIN category
+                                                                ON category.id = product_category.category_id
+                                                                WHERE product.status = 'active'
+                                                                AND category.id = '$category_id'
+                                                                GROUP BY product.id 
+                                                                ORDER BY product.`timestamp` ASC";
+
+                    $product_query .= " LIMIT $lower_limit, $limit";
+
+                    $product = mysqli_query($this->mysqli, $product_query);
+
+                    $count_rlt = mysqli_query($this->mysqli, "SELECT FOUND_ROWS() AS data_count");
+                    $count_rlt = mysqli_fetch_assoc($count_rlt);
+                    $data_count = $count_rlt['data_count'];
+                    $total_pages = ceil($data_count / $limit);
+
+                    $product_data = array();
+                    if (mysqli_num_rows($product)) {
+                        while ($row = $product->fetch_assoc()) {
+                            $product_rlt['uid'] = $row['uid'];
+                            $product_rlt['name'] = $row['name'];
+                            $product_rlt['image'] = self::URL . 'vendor_data/product/' . $row['image'];
+                            $product_rlt['offer_price'] = $row['offer_price'];
+                            $product_rlt['price'] = $row['price'];
+                            array_push($product_data, $product_rlt);
+                        }
+                    }
+
+                    $load_more = ($total_pages == 0 || $total_pages == $page) ? false : true;
+                    $success = array('status' => "Success", 'msg' => "Products Fetched", 'products' => $product_data, 'load_more' => $load_more);
+                    $this->response($this->json($success), 200);
+                } else {
+                    $success = array('status' => "Failed", 'msg' => "Category not found");
+                    $this->response($this->json($success), 200);
+                }
+            } else {
+                $success = array('status' => "Failed", 'msg' => "Vendor is not available");
+                $this->response($this->json($success), 200);
+            }
+        } else {
+            $success = array('status' => "Failed", 'msg' => "User not found");
+            $this->response($this->json($success), 200);
+        }
+    }
+
+    public function get_products()
+    {
+        if ($this->get_request_method() != "POST") {
+            $this->response('', 406);
+        }
+
+        $uid = isset($this->_request['uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['uid']) : null;
+        $type = isset($this->_request['type']) ? mysqli_real_escape_string($this->mysqli, $this->_request['type']) : null;
+        $vendor_uid = isset($this->_request['vendor_uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['vendor_uid']) : null;
+        $page = isset($this->_request['page']) ? mysqli_real_escape_string($this->mysqli, $this->_request['page']) : 1;
+
+        $limit = 15;
+        $lower_limit = ($page - 1) * $limit;
+
+        $user_id = $this->db_user->isValidUserId($uid);
+
+        if ($user_id) {
+            $vendor_id = $this->db_user->isValidVendorId($vendor_uid);
+            if ($vendor_id) {
+                $product_query = "SELECT SQL_CALC_FOUND_ROWS 
+                                          product.*, 
+                                          product_image.image, 
+                                          CASE WHEN product_price_tbl.warranty_price IS NOT NULL THEN product_price_tbl.warranty_price ELSE product_price_tbl.price END AS price,
+                                          CASE WHEN product_price_tbl.warranty_price IS NOT NULL THEN product_price_tbl.warranty_offer_price ELSE product_price_tbl.offer_price END AS offer_price,
+                                          GROUP_CONCAT(DISTINCT category.name SEPARATOR ', ') AS category
+                                  FROM product 
+                                  INNER JOIN (
+                                          SELECT row_number()over(order by (CASE 
+                                           WHEN product_size_color_warranty.price IS NULL
+                                           THEN (CASE WHEN product_size.offer_price != 0 
+                                           THEN product_size.offer_price 
+                                           ELSE product_size.price END)
+                                           ELSE (CASE WHEN product_size_color_warranty.offer_price != 0 
+                                           THEN product_size_color_warranty.offer_price 
+                                           ELSE product_size_color_warranty.price END)
+                                           END)) auto_id,
+                                                 product_size.product_id AS prdt_id,
+                                                 product_size.price,
+                                                 product_size.offer_price,
+                                                 product_size_color.id AS product_size_color_id, 
+                                                 product_size_color_warranty.id AS product_size_warranty_id, 
+                                                 product_size_color_warranty.price AS warranty_price,
+                                                 product_size_color_warranty.offer_price AS warranty_offer_price,
+                                                 vendor_stock.vendor_id,
+                                          (CASE 
+                                           WHEN product_size_color_warranty.price IS NULL
+                                           THEN (CASE WHEN product_size.offer_price != 0 
+                                           THEN product_size.offer_price 
+                                           ELSE product_size.price END)
+                                           ELSE (CASE WHEN product_size_color_warranty.offer_price != 0 
+                                           THEN product_size_color_warranty.offer_price 
+                                           ELSE product_size_color_warranty.price END)
+                                           END) AS compare_price
+                                FROM product_size
+                                INNER JOIN vendor_stock
+                                ON vendor_stock.product_size_id = product_size.id
+                                LEFT JOIN product_size_color
+                                ON product_size_color.product_size_id = product_size.id
+                                LEFT JOIN product_size_color_warranty
+                                ON product_size_color_warranty.product_size_color_id = product_size_color.id 
+                                WHERE product_size.status = 'active' 
+                                AND vendor_stock.vendor_id = '$vendor_id' 
+                                ORDER BY auto_id DESC) AS product_price_tbl
+                                ON product_price_tbl.prdt_id = product.id
+                                INNER JOIN product_image 
+                                ON product_image.product_id = product.id 
+                                INNER JOIN top_product
+                                ON top_product.product_id = product.id
+                                LEFT JOIN product_category
+                                ON product_category.product_id = product.id
+                                LEFT JOIN category
+                                ON category.id = product_category.category_id
+                                AND category.status = 'active'
+                                WHERE product.status = 'active'
+                                AND top_product.type = '$type'
+                                GROUP BY product.id 
+                                ORDER BY product.`timestamp` ASC";
+
+                $product_query .= " LIMIT $lower_limit, $limit";
+
+                $product = mysqli_query($this->mysqli, $product_query);
+
+                $count_rlt = mysqli_query($this->mysqli, "SELECT FOUND_ROWS() AS data_count");
+                $count_rlt = mysqli_fetch_assoc($count_rlt);
+                $data_count = $count_rlt['data_count'];
+                $total_pages = ceil($data_count / $limit);
+
+                $product_data = array();
+                if (mysqli_num_rows($product)) {
+                    while ($row = $product->fetch_assoc()) {
+                        if ($row['category']) {
+                            $product_rlt['uid'] = $row['uid'];
+                            $product_rlt['name'] = $row['name'];
+                            $product_rlt['image'] = self::URL . 'vendor_data/product/' . $row['image'];
+                            $product_rlt['offer_price'] = round($row['offer_price'], 2);
+                            $product_rlt['price'] = round($row['price'], 2);
+                            array_push($product_data, $product_rlt);
+                        }
+                    }
+                }
+
+                $load_more = ($total_pages == 0 || $total_pages == $page) ? false : true;
+                $success = array('status' => "Success", 'msg' => "Products Fetched", 'products' => $product_data, 'load_more' => $load_more);
+                $this->response($this->json($success), 200);
+            } else {
+                $success = array('status' => "Failed", 'msg' => "Vendor is not available");
+                $this->response($this->json($success), 200);
+            }
+        } else {
+            $success = array('status' => "Failed", 'msg' => "User not found");
+            $this->response($this->json($success), 200);
+        }
+    }
+
+    public function add_to_cart()
+    {
+        if ($this->get_request_method() != "POST") {
+            $this->response('', 406);
+        }
+
+        $uid = isset($this->_request['uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['uid']) : null;
+        $product_uid = isset($this->_request['product_uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['product_uid']) : null;
+        $vendor_uid = isset($this->_request['vendor_uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['vendor_uid']) : null;
+        $product_size_id = isset($this->_request['product_size_id']) ? mysqli_real_escape_string($this->mysqli, $this->_request['product_size_id']) : null;
+        $count = isset($this->_request['count']) ? mysqli_real_escape_string($this->mysqli, $this->_request['count']) : null;
+        $color_id = isset($this->_request['color_id']) && mysqli_real_escape_string($this->mysqli, $this->_request['color_id']) != '' ? "'" . mysqli_real_escape_string($this->mysqli, $this->_request['color_id']) . "'" : 'null';
+        $warranty_id = isset($this->_request['warranty_id']) && mysqli_real_escape_string($this->mysqli, $this->_request['warranty_id']) != '' ? "'" . mysqli_real_escape_string($this->mysqli, $this->_request['warranty_id']) . "'" : 'null';
+        $design_id = isset($this->_request['design_id']) && mysqli_real_escape_string($this->mysqli, $this->_request['design_id']) != '' ? "'" . mysqli_real_escape_string($this->mysqli, $this->_request['design_id']) . "'" : 'null';
+        $page = isset($this->_request['page']) ? mysqli_real_escape_string($this->mysqli, $this->_request['page']) : null;
+        $user_id = $this->db_user->isValidUserId($uid);
+
+        if ($user_id) {
+            $vendor_id = $this->db_user->isValidVendorId($vendor_uid);
+            if ($vendor_id) {
+                $product_id = $this->db_user->isValidProductId($product_uid);
+                if ($product_id) {
+                    $cart_rlt_query = "SELECT * FROM cart 
+                                           WHERE product_size_id = '$product_size_id'
+                                           AND vendor_id = '$vendor_id'
+                                           AND user_id = '$user_id'";
+
+                    if ($color_id == 'null') {
+                        $cart_rlt_query .= " AND color_id IS NULL";
+                    } else {
+                        $cart_rlt_query .= " AND color_id = $color_id";
+                    }
+
+                    if ($design_id == 'null') {
+                        $cart_rlt_query .= " AND product_design_id IS NULL";
+                    } else {
+                        $cart_rlt_query .= " AND product_design_id = $design_id";
+                    }
+
+                    if ($warranty_id == 'null') {
+                        $cart_rlt_query .= " AND warranty_id IS NULL";
+                    } else {
+                        $cart_rlt_query .= " AND warranty_id = $warranty_id";
+                    }
+                    $cart_rlt = mysqli_query($this->mysqli, $cart_rlt_query);
+
+                    if (mysqli_num_rows($cart_rlt)) {
+                        $row = mysqli_fetch_array($cart_rlt);
+                        $cart_id = $row['id'];
+                        if ($count == 0) {
+                            if ($page == 'cart') {
+                                $delete_cart_rlt = mysqli_query($this->mysqli, "DELETE FROM cart
+                                                                                  WHERE id = '$cart_id'");
+                                if ($delete_cart_rlt) {
+                                    $success = array('status' => "Success", 'msg' => "Product Removed from Cart");
+                                    $this->response($this->json($success), 200);
+                                } else {
+                                    $success = array('status' => "Failed", 'msg' => "Failed");
+                                    $this->response($this->json($success), 200);
+                                }
+                            } else {
+                                $success = array('status' => "Failed", 'msg' => "Failed");
+                                $this->response($this->json($success), 200);
+                            }
+                        } else {
+                            $product_rlt = mysqli_query($this->mysqli, "UPDATE cart
+                                                                          SET `count` = '$count',
+                                                                               color_id = $color_id,
+                                                                               warranty_id = $warranty_id,
+                                                                               product_design_id = $design_id
+                                                                          WHERE id = '$cart_id'");
+                        }
+                    } else {
+                        $product_rlt = mysqli_query($this->mysqli, "INSERT INTO cart (user_id, vendor_id, product_size_id, color_id, warranty_id, `count`, product_design_id)
+                                                                       VALUES('$user_id', '$vendor_id', '$product_size_id', $color_id, $warranty_id, '$count', $design_id)");
+                    }
+
+                    if ($product_rlt) {
+                        $success = array('status' => "Success", 'msg' => "Product Added to Cart");
+                        $this->response($this->json($success), 200);
+                    } else {
+                        $success = array('status' => "Failed", 'msg' => "Failed");
+                        $this->response($this->json($success), 200);
+                    }
+                } else {
+                    $success = array('status' => "Failed", 'msg' => "Product not found");
+                    $this->response($this->json($success), 200);
+                }
+            } else {
+                $success = array('status' => "Failed", 'msg' => "Vendor is not available");
+                $this->response($this->json($success), 200);
+            }
+        } else {
+            $success = array('status' => "Failed", 'msg' => "User not found");
+            $this->response($this->json($success), 200);
+        }
+    }
+
+    public function get_cart_list()
+    {
+        if ($this->get_request_method() != "POST") {
+            $this->response('', 406);
+        }
+
+        $uid = isset($this->_request['uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['uid']) : null;
+        $vendor_uid = isset($this->_request['vendor_uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['vendor_uid']) : null;
+        $type = isset($this->_request['type']) ? mysqli_real_escape_string($this->mysqli, $this->_request['type']) : null;
+        $user_id = $this->db_user->isValidUserId($uid);
+
+        if ($user_id) {
+            $vendor_id = $this->db_user->isValidVendorId($vendor_uid);
+
+            if ($vendor_id) {
+                //get cart list
+                $cart = mysqli_query($this->mysqli, "SELECT cart.id AS cart_id,
+                                                               cart.count,
+                                                               cart.color_id,
+                                                               cart.warranty_id,
+                                                               warranty.warranty,
+                                                               color.code AS color_code,
+                                                               color.name AS color_name,
+                                                               product.uid,
+                                                               product.name,
+                                                               product.status AS product_status,
+                                                               product_image.image,
+                                                               cart.product_design_id AS product_design_id,
+                                                               product_design.status AS product_design_status,
+                                                               product_design.name AS design_name,
+                                                               product_design_image.image AS product_design_image,
+                                                               product_size.*,
+                                                               vendor_stock.stock,
+                                                               vendor.place,
+                                                               tax.tax,
+                                                               product_size_color_warranty.price AS color_price,
+                                                               product_size_color_warranty.offer_price AS color_offer_price,
+                                                               product_color_image.image AS product_color_image_name,
+                                                               GROUP_CONCAT(DISTINCT category.name SEPARATOR ', ') AS category
+                                                        FROM cart
+                                                        INNER JOIN vendor
+                                                        ON vendor.id = cart.vendor_id
+                                                        LEFT JOIN product_size
+                                                        ON product_size.id = cart.product_size_id
+                                                        LEFT JOIN vendor_stock
+                                                        ON vendor_stock.product_size_id = cart.product_size_id
+                                                        AND vendor_stock.vendor_id = cart.vendor_id
+                                                        AND (vendor_stock.color_id = cart.color_id 
+                                                        OR cart.color_id IS NULL)
+                                                        LEFT JOIN color
+                                                        ON color.id = cart.color_id
+                                                        INNER JOIN product
+                                                        ON product.id = product_size.product_id
+                                                        INNER JOIN product_image 
+                                                        ON product_image.product_id = product.id
+                                                        LEFT JOIN product_color_image 
+                                                        ON product_color_image.product_id = product.id
+                                                        AND product_color_image.color_id = color.id
+                                                        LEFT JOIN product_design
+                                                        ON product_design.id = cart.product_design_id
+                                                        LEFT JOIN product_design_image
+                                                        ON product_design_image.product_design_id = product_design.id
+                                                        LEFT JOIN product_size_color
+                                                        ON product_size_color.product_size_id = cart.product_size_id 
+                                                        AND product_size_color.color_id = cart.color_id
+                                                        LEFT JOIN product_size_color_warranty
+                                                        ON product_size_color_warranty.product_size_color_id = product_size_color.id 
+                                                        AND product_size_color_warranty.warranty_id = cart.warranty_id
+                                                        LEFT JOIN warranty
+                                                        ON warranty.id = cart.warranty_id
+                                                        LEFT JOIN tax 
+                                                        ON tax.id = product.tax_id 
+                                                        LEFT JOIN product_category
+                                                        ON product_category.product_id = product.id
+                                                        LEFT JOIN category
+                                                        ON category.id = product_category.category_id
+                                                        AND category.status = 'active'
+                                                        WHERE cart.user_id = '$user_id'
+                                                        AND cart.vendor_id = '$vendor_id'
+                                                        GROUP BY cart_id
+                                                        ORDER BY cart.timestamp DESC");
+
+                $cart_data = array();
+                $error_count = 0;
+                $total_cost = 0;
+                $total_tax = 0;
+                if (mysqli_num_rows($cart)) {
+                    while ($row = $cart->fetch_assoc()) {
+                        $cart_rlt = [];
+
+                        $prdt_size_id = $row['id'];
+                        $product_rlt = mysqli_query($this->mysqli, "SELECT product_size_color.color_id,
+                                                                                  product_size_color_warranty.warranty_id,
+                                                                                  product_design.id AS design_id
+                                                                          FROM product_size
+                                                                          LEFT JOIN product_size_color
+                                                                          ON product_size_color.product_size_id = product_size.id
+                                                                          LEFT JOIN product_size_color_warranty
+                                                                          ON product_size_color_warranty.product_size_color_id = product_size_color.id
+                                                                          LEFT JOIN product
+                                                                          ON product.id = product_size.product_id
+                                                                          LEFT JOIN product_design
+                                                                          ON product_design.product_id = product.id
+                                                                          AND product_design.status = 'active'
+                                                                          WHERE product_size.id = '$prdt_size_id'
+                                                                          LIMIT 1");
+                        $current_row = $product_rlt->fetch_assoc();
+                        $current_color_id = $current_row['color_id'];
+                        $current_warranty_id = $current_row['warranty_id'];
+                        $current_design_id = $current_row['design_id'];
+                        $cart_color_id = $row['color_id'];
+                        $cart_warranty_id = $row['warranty_id'];
+                        $cart_design_id = $row['product_design_id'];
+
+                        $not_available_count = 0;
+                        $cart_rlt['product_uid'] = $row['uid'];
+                        $cart_rlt['name'] = $row['name'];
+                        $cart_rlt['product_design_id'] = $row['product_design_id'];
+                        $cart_rlt['design_name'] = $row['design_name'];
+                        $cart_rlt['color_code'] = $row['color_code'];
+                        $cart_rlt['image'] = $row['product_color_image_name'] ? (self::URL . 'vendor_data/product/' . $row['product_color_image_name']) : ($row['product_design_image'] ? (self::URL . 'vendor_data/product/' . $row['product_design_image']) : (self::URL . 'vendor_data/product/' . $row['image']));
+                        $cart_rlt['stock'] = $row['stock'];
+                        $cart_rlt['color_id'] = $row['color_id'];
+                        $cart_rlt['color_name'] = $row['color_name'];
+                        $cart_rlt['is_design'] = $row['product_design_id'] ? 1 : 0;
+                        $cart_rlt['is_warranty'] = $row['warranty_id'] ? 1 : 0;
+                        $cart_rlt['product_size_id'] = $row['id'];
+                        $cart_rlt['size'] = $row['size'] . $row['size_unit'];
+                        if ($row['category']) {
+                            $cart_rlt['error'] = '';
+                            $cart_rlt['empty_val'] = 0;
+                        } else {
+                            $error_count++;
+                            $not_available_count++;
+                            $cart_rlt['error'] = 'Not Available';
+                            $cart_rlt['empty_val'] = 1;
+                        }
+                        $cart_rlt['cart_id'] = $row['cart_id'];
+                        $cart_rlt['count'] = $row['count'];
+                        $cart_rlt['total_count'] = $row['count'];
+                        $cart_rlt['price'] = $row['price'];
+                        $cart_rlt['offer_price'] = $row['offer_price'];
+                        $display_price = $row['offer_price'] > 0 ? $row['offer_price'] : $row['price'];
+                        $cart_rlt['display_price'] = $display_price;
+                        $cart_rlt['total_display_price'] = ($row['count'] * $display_price);
+                        $cart_rlt['product_design_id'] = $row['product_design_id'];
+                        $cart_rlt['design_name'] = $row['design_name'];
+                        $cart_rlt['image'] = $row['product_color_image_name'] ? (self::URL . 'vendor_data/product/' . $row['product_color_image_name']) : ($row['product_design_image'] ? (self::URL . 'vendor_data/product/' . $row['product_design_image']) : (self::URL . 'vendor_data/product/' . $row['image']));
+                        $cart_rlt['warranty_id'] = $row['warranty_id'];
+                        $cart_rlt['warranty'] = $row['warranty'];
+
+                        if ($row['warranty_id']) {
+                            if ($row['color_price'] == null) {
+                                $cart_rlt['price'] = 0;
+                                $cart_rlt['offer_price'] = 0;
+                                $display_price = 0;
+                                $cart_rlt['display_price'] = 0;
+                                $cart_rlt['total_display_price'] = 0;
+                                $cart_rlt['error'] = 'Not Available';
+                                $cart_rlt['empty_val'] = 1;
+                                $not_available_count++;
+                                $error_count++;
+                            } else {
+                                $cart_rlt['price'] = $row['color_price'];
+                                $cart_rlt['offer_price'] = $row['color_offer_price'];
+                                $display_price = $row['color_offer_price'] > 0 ? $row['color_offer_price'] : $row['color_price'];
+                                $cart_rlt['display_price'] = $display_price;
+                                $cart_rlt['total_display_price'] = ($row['count'] * $display_price);
+                                $cart_rlt['error'] = '';
+                                $cart_rlt['empty_val'] = 0;
+                            }
+                        }
+
+                        if ($row['product_design_status'] == 'removed') {
+                            $cart_rlt['price'] = 0;
+                            $cart_rlt['offer_price'] = 0;
+                            $display_price = 0;
+                            $cart_rlt['display_price'] = 0;
+                            $cart_rlt['total_display_price'] = 0;
+                            $cart_rlt['error'] = 'Not Available';
+                            $cart_rlt['empty_val'] = 1;
+                            $not_available_count++;
+                            $error_count++;
+                        }
+
+
+                        if ($current_color_id) {
+                            if (!$cart_color_id) {
+                                $error_count++;
+                                $not_available_count++;
+                                $cart_rlt['error'] = 'Not Available';
+                                $cart_rlt['empty_val'] = 1;
+                                $cart_rlt['price'] = 0;
+                                $cart_rlt['offer_price'] = 0;
+                                $display_price = 0;
+                                $cart_rlt['display_price'] = 0;
+                                $cart_rlt['total_display_price'] = 0;
+                            }
+                        }
+
+                        if ($current_warranty_id) {
+                            if (!$cart_warranty_id) {
+                                $error_count++;
+                                $not_available_count++;
+                                $cart_rlt['error'] = 'Not Available';
+                                $cart_rlt['empty_val'] = 1;
+                                $cart_rlt['price'] = 0;
+                                $cart_rlt['offer_price'] = 0;
+                                $display_price = 0;
+                                $cart_rlt['display_price'] = 0;
+                                $cart_rlt['total_display_price'] = 0;
+                            }
+                        }
+
+                        if ($current_design_id) {
+                            if (!$cart_design_id) {
+                                $error_count++;
+                                $not_available_count++;
+                                $cart_rlt['error'] = 'Not Available';
+                                $cart_rlt['empty_val'] = 1;
+                                $cart_rlt['price'] = 0;
+                                $cart_rlt['offer_price'] = 0;
+                                $display_price = 0;
+                                $cart_rlt['display_price'] = 0;
+                                $cart_rlt['total_display_price'] = 0;
+                            }
+                        }
+
+                        $cart_rlt['product_status'] = $row['product_status'];
+                        $cart_rlt['product_size_status'] = $row['status'];
+                        $cart_rlt['vendor'] = $row['place'];
+                        $total_cost = $total_cost + ($row['count'] * $display_price);
+                        if ($row['tax']) {
+                            $total_tax = $total_tax + (($row['count'] * $display_price) * ($row['tax'] / 100));
+                        }
+
+                        $stock = $row['stock'];
+                        $count = $row['count'];
+                        $product_size_id = $row['id'];
+                        $color_id = $row['color_id'];
+                        $color_name = $row['color_name'];
+                        $size = $row['size'] . $row['size_unit'];
+
+                        if ($not_available_count == 0) {
+                            if ($row['product_status'] == 'active') {
+                                if ($row['status'] == 'active') {
+                                    if ($stock != 'unlimited') {
+                                        if ($row['warranty_id'] || $row['product_design_id']) {
+                                            $warranty_query = mysqli_query($this->mysqli, "SELECT SUM(cart.count) AS total_cart_count
+                                                                                              FROM cart
+                                                                                              WHERE cart.user_id = '$user_id'
+                                                                                              AND cart.vendor_id = '$vendor_id'
+                                                                                              AND cart.product_size_id = '$product_size_id'
+                                                                                              AND (cart.color_id = '$color_id'
+                                                                                              OR cart.color_id IS NULL)
+                                                                                              AND ((cart.warranty_id IS NOT NULL
+                                                                                              AND cart.product_design_id IS NOT NULL)
+                                                                                              OR cart.warranty_id IS NOT NULL
+                                                                                              OR cart.product_design_id IS NOT NULL)");
+                                            if (mysqli_num_rows($warranty_query)) {
+                                                $row_warranty = mysqli_fetch_array($warranty_query);
+                                                $count = $row_warranty['total_cart_count'];
+                                            }
+                                        }
+
+                                        if ($stock == 0) {
+                                            $error_count++;
+                                            $cart_rlt['error'] = 'Out of Stock';
+                                            $cart_rlt['empty_val'] = 1;
+                                        } else if ($count > $stock) {
+                                            $error_count++;
+                                            if ($stock) {
+                                                if ($row['warranty_id'] || $row['product_design_id']) {
+                                                    if ($color_id) {
+                                                        $cart_rlt['error'] = 'Total ' . $stock . ' is Available for ' . $size . ' ' . $color_name;
+                                                    } else {
+                                                        $cart_rlt['error'] = 'Total ' . $stock . ' is Available for ' . $size;
+                                                    }
+                                                } else {
+                                                    $cart_rlt['error'] = 'Only ' . $stock . ' is Available';
+                                                }
+                                            } else {
+                                                $cart_rlt['error'] = 'Not Available';
+                                                $cart_rlt['empty_val'] = 1;
+                                            }
+                                        } else {
+                                            $cart_rlt['error'] = '';
+                                        }
+
+                                    } else {
+                                        $cart_rlt['error'] = '';
+                                    }
+                                } else {
+                                    $error_count++;
+                                    $cart_rlt['error'] = 'Not Available';
+                                    $cart_rlt['empty_val'] = 1;
+                                }
+                            } else {
+                                $error_count++;
+                                $cart_rlt['error'] = 'Not Available';
+                                $cart_rlt['empty_val'] = 1;
+                            }
+                        }
+
+                        array_push($cart_data, $cart_rlt);
+
+                    }
+
+                    if ($type == 'checkout') {
+                        if ($error_count == 0) {
+                            if ($total_cost < 500) {
+                                $success = array('status' => "Failed", 'msg' => 'Minimum order value must be Rs. 500');
+                                $this->response($this->json($success), 200);
+                            }
+                        }
+                    }
+
+                    $cart_detail['total_tax'] = $total_tax;
+                    $cart_detail['cart'] = $cart_data;
+                    $cart_detail['total_cost'] = $total_cost;
+                    $success = array('status' => "Success", 'msg' => "Cart Details Fetched", 'cart_detail' => $cart_detail, 'error_count' => $error_count);
+                    $this->response($this->json($success), 200);
+                } else {
+                    $cart_detail['total_tax'] = 0;
+                    $cart_detail['cart'] = $cart_data;
+                    $cart_detail['total_cost'] = $total_cost;
+
+                    $success = array('status' => "Success", 'msg' => "Cart Empty", 'cart_detail' => $cart_detail, 'error_count' => $error_count);
+                    $this->response($this->json($success), 200);
+                }
+            } else {
+                $success = array('status' => "Failed", 'msg' => "Vendor is not available");
+                $this->response($this->json($success), 200);
+            }
+        } else {
+            $success = array('status' => "Failed", 'msg' => "User not found");
+            $this->response($this->json($success), 200);
+        }
+    }
+
+    public function upload_profile_pic()
+    {
+        if ($this->get_request_method() != "POST") {
+            $this->response('', 406);
+        }
+
+        $uid = isset($this->_request['uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['uid']) : null;
+        $user_id = $this->db_user->isValidUserId($uid);
+
+        if ($user_id) {
+            if (isset($_FILES["file"]["type"]) && $_FILES["file"]["type"] != null) {
+                $ds = DIRECTORY_SEPARATOR;
+                $targetPath = self::UPLOAD_DIR . $ds . "user" . $ds;
+                $validextensions = array("jpeg", "jpg", "png");
+                $temporary = explode(".", $_FILES["file"]["name"]);
+                $file_extension = end($temporary);
+                if ((($_FILES["file"]["type"] == "image/png") || ($_FILES["file"]["type"] == "image/jpg") || ($_FILES["file"]["type"] == "image/jpeg")
+                    ) && in_array($file_extension, $validextensions)) {
+                    if ($_FILES["file"]["error"] > 0) {
+                        $err = $_FILES["file"]["error"];
+                        $success = array('status' => "Failed", 'msg' => "Return Code: " . $err);
+                        $this->response($this->json($success), 200);
+                    } else {
+                        $sourcePath = $_FILES['file']['tmp_name'];
+                        $newFileName = $this->create_random_string(18) . '.' . $file_extension;
+                        $targetFile = $targetPath . $newFileName;
+                        if (move_uploaded_file($sourcePath, $targetFile)) {
+                            $user_rlt = mysqli_query($this->mysqli, "UPDATE `user` SET image = '$newFileName' WHERE id = '$user_id'");
+                            $img_url = self::URL . 'vendor_data/user/' . $newFileName;
+                            if ($user_rlt) {
+                                $success = array('status' => "Success", 'msg' => "Profile Pic Uploaded", 'img_url' => $img_url);
+                                $this->response($this->json($success), 200);
+                            } else {
+                                $success = array('status' => "Failed", 'msg' => "Failed to Upload");
+                                $this->response($this->json($success), 200);
+                            }
+                        } else {
+                            $success = array('status' => "Failed", 'msg' => "Uploaded File Error");
+                            $this->response($this->json($success), 200);
+                        }
+                    }
+                } else {
+                    $success = array('status' => "Failed", 'msg' => "Invalid Photo");
+                    $this->response($this->json($success), 200);
+                }
+            } else {
+                $success = array('status' => "Failed", 'msg' => "Failed to Upload");
+                $this->response($this->json($success), 200);
+            }
+        } else {
+            $success = array('status' => "Failed", 'msg' => "User not found");
+            $this->response($this->json($success), 200);
+        }
+    }
+
+    public function change_password()
+    {
+        if ($this->get_request_method() != "POST") {
+            $this->response('', 406);
+        }
+
+        $uid = isset($this->_request['uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['uid']) : null;
+        $current_password = isset($this->_request['current_password']) ? mysqli_real_escape_string($this->mysqli, $this->_request['current_password']) : null;
+        $new_password = isset($this->_request['new_password']) ? mysqli_real_escape_string($this->mysqli, $this->_request['new_password']) : null;
+
+        $user_id = $this->db_user->isValidUserId($uid);
+        if ($user_id) {
+            $current_ps = hash('sha512', $current_password);
+            $salt = hash('sha512', $current_ps);
+            $current_pswd = hash('sha512', $current_ps . $salt);
+            $result = mysqli_query($this->mysqli, "SELECT id FROM `user` WHERE id = '$user_id' AND password = '$current_pswd'");
+            if (mysqli_num_rows($result)) {
+                $ps = hash('sha512', $new_password);
+                $salt = hash('sha512', $ps);
+                $password = hash('sha512', $ps . $salt);
+                $rlt = mysqli_query($this->mysqli, "UPDATE `user` SET password ='$password', salt ='$salt' WHERE id = '$user_id'");
+                if ($rlt) {
+                    $success = array('status' => "Success", 'msg' => "Password Updated Successfully");
+                    $this->response($this->json($success), 200);
+                } else {
+                    $success = array('status' => "Failed", 'msg' => "Update Failed");
+                    $this->response($this->json($success), 200);
+                }
+            } else {
+                $success = array('status' => "Failed", 'msg' => "Wrong Current Password");
+                $this->response($this->json($success), 200);
+            }
+        } else {
+            $success = array('status' => "Failed", 'msg' => "User not found");
+            $this->response($this->json($success), 200);
+        }
+    }
+
+    public function update_user_profile()
+    {
+        if ($this->get_request_method() != "POST") {
+            $this->response('', 406);
+        }
+        $uid = isset($this->_request['uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['uid']) : null;
+        $full_name = isset($this->_request['full_name']) ? mysqli_real_escape_string($this->mysqli, $this->_request['full_name']) : null;
+        $email = isset($this->_request['email']) ? mysqli_real_escape_string($this->mysqli, $this->_request['email']) : null;
+        $mobile = isset($this->_request['mobile']) ? mysqli_real_escape_string($this->mysqli, $this->_request['mobile']) : null;
+
+        $user_id = $this->db_user->isValidUserId($uid);
+        if ($user_id) {
+            if (!preg_match("^[_a-z0-9-]+(\.[_a-z0-9-]+)*@[a-z0-9-]+(\.[a-z0-9-]+)*(\.[a-z]{2,3})$^", $email)) {
+                $success = array('status' => "Failed", 'msg' => "Invalid Email");
+                $this->response($this->json($success), 200);
+            }
+
+            if (!preg_match('/^[0-9]{10}+$/', $mobile)) {
+                $success = array('status' => "Failed", 'msg' => "Invalid Mobile");
+                $this->response($this->json($success), 200);
+            }
+
+            $user_rlt = mysqli_query($this->mysqli, "SELECT id 
+                                                            FROM `user`
+                                                            WHERE (email = '$email'
+                                                            OR mobile = '$mobile')
+                                                            AND id != '$user_id'");
+            if (!mysqli_num_rows($user_rlt)) {
+                $update = mysqli_query($this->mysqli, "UPDATE `user` 
+                                                              SET full_name = '$full_name',
+                                                                  email = '$email',
+                                                                  mobile = '$mobile' 
+                                                              WHERE id = '$user_id'");
+                if ($update) {
+                    $success = array('status' => "Success", 'msg' => "Updated Successfully");
+                    $this->response($this->json($success), 200);
+                } else {
+                    $success = array('status' => "Failed", 'msg' => "Failed");
+                    $this->response($this->json($success), 200);
+                }
+            } else {
+                $success = array('status' => "Failed", 'msg' => "Email/Mobile Already Exists");
+                $this->response($this->json($success), 200);
+            }
+        } else {
+            $success = array('status' => "Failed", 'msg' => "User not found");
+            $this->response($this->json($success), 200);
+        }
+    }
+
+    public function create_razorpay_order()
+    {
+        if ($this->get_request_method() != "POST") {
+            $this->response('', 406);
+        }
+
+        $uid = isset($this->_request['uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['uid']) : null;
+        $vendor_uid = isset($this->_request['vendor_uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['vendor_uid']) : null;
+        $amount = isset($this->_request['amount']) ? mysqli_real_escape_string($this->mysqli, $this->_request['amount']) : null;
+        $promo_code_id = isset($this->_request['promo_code_id']) && mysqli_real_escape_string($this->mysqli, $this->_request['promo_code_id']) != '' ? "'" . mysqli_real_escape_string($this->mysqli, $this->_request['promo_code_id']) . "'" : 'null';
+        $promo_code = isset($this->_request['promo_code']) && mysqli_real_escape_string($this->mysqli, $this->_request['promo_code']) != '' ? "'" . mysqli_real_escape_string($this->mysqli, $this->_request['promo_code']) . "'" : 'null';
+        $flat_rate = isset($this->_request['flat_rate']) ? mysqli_real_escape_string($this->mysqli, $this->_request['flat_rate']) : null;
+        $total_tax = isset($this->_request['tax']) ? mysqli_real_escape_string($this->mysqli, $this->_request['tax']) : null;
+        $shipping_fee = isset($this->_request['shipping_fee']) ? mysqli_real_escape_string($this->mysqli, $this->_request['shipping_fee']) : null;
+        $full_name = isset($this->_request['full_name']) ? mysqli_real_escape_string($this->mysqli, $this->_request['full_name']) : null;
+        $phone_number = isset($this->_request['phone_number']) ? mysqli_real_escape_string($this->mysqli, $this->_request['phone_number']) : null;
+        $city_district = isset($this->_request['city_district']) ? mysqli_real_escape_string($this->mysqli, $this->_request['city_district']) : null;
+        $pincode = isset($this->_request['pincode']) ? mysqli_real_escape_string($this->mysqli, $this->_request['pincode']) : null;
+        $address = isset($this->_request['address']) ? mysqli_real_escape_string($this->mysqli, $this->_request['address']) : null;
+        $type = isset($this->_request['type']) ? mysqli_real_escape_string($this->mysqli, $this->_request['type']) : null;
+        $order_type = isset($this->_request['order_type']) ? mysqli_real_escape_string($this->mysqli, $this->_request['order_type']) : null;
+        $order_uid = $this->create_alpha_numeric_string(16);
+        $order_id = '';
+        $total_amount = round($amount, 2);
+
+        $user_id = $this->db_user->isValidUserId($uid);
+        if ($user_id) {
+            $vendor_id = $this->db_user->isValidVendorId($vendor_uid);
+            if ($vendor_id) {
+                $query = "SELECT cart.count,
+                              cart.warranty_id,
+                              cart.color_id AS cart_color_id,
+                              cart.product_design_id AS cart_product_design_id,
+                              product_size_color_warranty.price AS color_price,
+                              product_size_color_warranty.offer_price AS color_offer_price,
+                              color.id AS color_id,
+                              color.code AS color_code,
+                              color.name AS color_name,
+                              warranty.warranty AS warranty_name,
+                              vendor_stock.id AS vendor_stock_id,
+                              vendor_stock.stock,
+                              product.name,
+                              product.material,
+                              product.brand,
+                              product.code,
+                              product.batch_no,
+                              product.status AS product_status,
+                              product_size.*,
+                              product_image.image,
+                              product_color_image.image AS color_image,
+                              product_design_image.image AS design_image,
+                              product_design.id AS product_design_id,
+                              product_design.name AS design_name,
+                              product_design.status AS product_design_status,
+                              tax.tax
+                       FROM cart
+                       INNER JOIN product_size
+                       ON product_size.id = cart.product_size_id
+                       INNER JOIN product
+                       ON product.id = product_size.product_id
+                       INNER JOIN product_image
+                       ON product_image.product_id = product.id
+                       LEFT JOIN product_color_image
+                       ON product_color_image.product_id = product.id
+                       AND product_color_image.color_id = cart.color_id
+                       LEFT JOIN product_design
+                       ON product_design.product_id = product.id
+                       AND product_design.status = 'active'
+                       LEFT JOIN product_design_image
+                       ON product_design_image.product_design_id = product_design.id
+                       AND product_design_image.product_design_id = cart.product_design_id
+                       LEFT JOIN tax
+                       ON tax.id = product.tax_id
+                       LEFT JOIN vendor_stock
+                       ON vendor_stock.product_size_id = cart.product_size_id
+                       AND vendor_stock.vendor_id = cart.vendor_id
+                       AND (vendor_stock.color_id = cart.color_id 
+                       OR cart.color_id IS NULL)
+                       LEFT JOIN color
+                       ON color.id = cart.color_id
+                       LEFT JOIN warranty
+                       ON warranty.id = cart.warranty_id
+                       LEFT JOIN product_size_color
+                       ON product_size_color.product_size_id = cart.product_size_id 
+                       AND product_size_color.color_id = cart.color_id
+                       LEFT JOIN product_size_color_warranty
+                       ON product_size_color_warranty.product_size_color_id = product_size_color.id 
+                       AND product_size_color_warranty.warranty_id = cart.warranty_id
+                       WHERE cart.user_id = '$user_id'
+                       AND cart.vendor_id = '$vendor_id'
+                       GROUP BY cart.id";
+
+                $query_rlt = mysqli_query($this->mysqli, $query);
+                if (mysqli_num_rows($query_rlt)) {
+                    while ($row = mysqli_fetch_array($query_rlt)) {
+                        $product_name = $row['name'];
+                        $stock = $row['stock'];
+                        $count = $row['count'];
+                        $product_size_id = $row['id'];
+                        $color_id = $row['color_id'];
+                        if ($row['product_status'] == 'active') {
+                            if ($row['status'] == 'active') {
+
+
+                                $product_rlt_data = mysqli_query($this->mysqli, "SELECT product_size_color.color_id,
+                                                                                  product_size_color_warranty.warranty_id,
+                                                                                  product_design.id AS design_id
+                                                                          FROM product_size
+                                                                          LEFT JOIN product_size_color
+                                                                          ON product_size_color.product_size_id = product_size.id
+                                                                          LEFT JOIN product_size_color_warranty
+                                                                          ON product_size_color_warranty.product_size_color_id = product_size_color.id
+                                                                          LEFT JOIN product
+                                                                          ON product.id = product_size.product_id
+                                                                          LEFT JOIN product_design
+                                                                          ON product_design.product_id = product.id
+                                                                          AND product_design.status = 'active'
+                                                                          WHERE product_size.id = '$product_size_id'
+                                                                          LIMIT 1");
+                                $current_row = $product_rlt_data->fetch_assoc();
+                                $current_color_id = $current_row['color_id'];
+                                $current_warranty_id = $current_row['warranty_id'];
+                                $current_design_id = $current_row['design_id'];
+                                $cart_color_id = $row['cart_color_id'];
+                                $cart_warranty_id = $row['warranty_id'];
+                                $cart_design_id = $row['cart_product_design_id'];
+
+
+                                if ($row['warranty_id']) {
+                                    if ($row['color_price'] == null) {
+                                        $success = array('status' => "Failed", 'msg' => "Not Available");
+                                        $this->response($this->json($success), 200);
+                                    }
+                                }
+
+                                if ($row['cart_product_design_id']) {
+                                    if ($row['product_design_status'] == 'removed') {
+                                        $success = array('status' => "Failed", 'msg' => "Not Available");
+                                        $this->response($this->json($success), 200);
+                                    }
+                                }
+
+                                if ($current_color_id) {
+                                    if (!$cart_color_id) {
+                                        $success = array('status' => "Failed", 'msg' => "Not Available");
+                                        $this->response($this->json($success), 200);
+                                    }
+                                }
+
+                                if ($current_warranty_id) {
+                                    if (!$cart_warranty_id) {
+                                        $success = array('status' => "Failed", 'msg' => "Not Available");
+                                        $this->response($this->json($success), 200);
+                                    }
+                                }
+
+                                if ($current_design_id) {
+                                    if (!$cart_design_id) {
+                                        $success = array('status' => "Failed", 'msg' => "Not Available");
+                                        $this->response($this->json($success), 200);
+                                    }
+                                }
+
+
+                                if ($stock != 'unlimited') {
+                                    if ($row['warranty_id'] || $row['product_design_id']) {
+                                        $warranty_query = mysqli_query($this->mysqli, "SELECT SUM(cart.count) AS total_cart_count
+                                                                                              FROM cart
+                                                                                              WHERE cart.user_id = '$user_id'
+                                                                                              AND cart.vendor_id = '$vendor_id'
+                                                                                              AND cart.product_size_id = '$product_size_id'
+                                                                                              AND (cart.color_id = '$color_id'
+                                                                                              OR cart.color_id IS NULL)
+                                                                                              AND ((cart.warranty_id IS NOT NULL
+                                                                                              AND cart.product_design_id IS NOT NULL)
+                                                                                              OR cart.warranty_id IS NOT NULL
+                                                                                              OR cart.product_design_id IS NOT NULL)");
+                                        if (mysqli_num_rows($warranty_query)) {
+                                            $row_warranty = mysqli_fetch_array($warranty_query);
+                                            $count = $row_warranty['total_cart_count'];
+                                        }
+                                    }
+                                    if ($stock >= $count) {
+                                    } else {
+                                        $success = array('status' => "Failed", 'msg' => "Not Available");
+                                        $this->response($this->json($success), 200);
+                                    }
+                                }
+                            } else {
+                                $success = array('status' => "Failed", 'msg' => "$product_name is Not Available");
+                                $this->response($this->json($success), 200);
+                            }
+                        } else {
+                            $success = array('status' => "Failed", 'msg' => "$product_name is Not Available");
+                            $this->response($this->json($success), 200);
+                        }
+                    }
+                }
+
+                $query_rlt2 = mysqli_query($this->mysqli, $query);
+                if (mysqli_num_rows($query_rlt2)) {
+                    $promo_code_rlt = mysqli_query($this->mysqli, "SELECT *
+                                                                          FROM promo_code
+                                                                          WHERE id = $promo_code_id");
+                    $flat_rate_percent = 0;
+                    if (mysqli_num_rows($promo_code_rlt)) {
+                        $promo_row = mysqli_fetch_array($promo_code_rlt);
+                        $flat_rate_percent = $promo_row['flat_rate_percent'] ? $promo_row['flat_rate_percent'] : 0;
+                    }
+
+                    if ($order_type == 'online') {
+                        $current_status = 'payment_cancelled';
+                    } else {
+                        $current_status = 'order_failed';
+                    }
+
+                    $orders = mysqli_query($this->mysqli, "INSERT INTO orders (uid, vendor_id, user_id,
+                                                                                     promo_code_id, promo_code, flat_rate, 
+                                                                                     flat_rate_percent, 
+                                                                                     tax, shipping_fee, total_cost,
+                                                                                     order_type, status)
+                                                                  VALUES('$order_uid', '$vendor_id', '$user_id',
+                                                                          $promo_code_id, $promo_code, '$flat_rate', 
+                                                                          '$flat_rate_percent',
+                                                                          '$total_tax', '$shipping_fee', '$total_amount',
+                                                                          '$order_type', '$current_status')");
+                    $order_id = $this->mysqli->insert_id;
+                    if ($order_id) {
+                        $order_address_rlt = mysqli_query($this->mysqli, "INSERT INTO order_address (order_id, full_name, phone_number, 
+                                                                                             city_district, zip, address, `type`)
+                                                                                 VALUES('$order_id', '$full_name', '$phone_number', 
+                                                                                 '$city_district', '$pincode', '$address', '$type')");
+
+                        $tax = 0;
+                        while ($row2 = mysqli_fetch_array($query_rlt2)) {
+                            $product_size_id = $row2['id'];
+                            $color_id = $row2['color_id'];
+                            $is_warranty_id = $row2['warranty_id'];
+                            $warranty_id = $row2['warranty_id'] ? $row2['warranty_id'] : 'null';
+                            $product_design_id = $row2['product_design_id'] ? $row2['product_design_id'] : 'null';
+                            if ($row2['warranty_id']) {
+                                $price = $row2['color_price'];
+                                $offer_price = $row2['color_offer_price'];
+                            } else {
+                                $price = $row2['price'];
+                                $offer_price = $row2['offer_price'];
+                            }
+                            $count = $row2['count'];
+                            $display_price = $offer_price > 0 ? $offer_price : $price;
+                            $tax = ($count * $display_price) * ($row2['tax'] / 100);
+
+                            $order_item_uid = $this->create_alpha_numeric_string(16);
+                            if ($color_id) {
+                                $order_items = mysqli_query($this->mysqli, "INSERT INTO order_item (uid, order_id, product_design_id, product_size_id, color_id, warranty_id, price, offer_price, `count`, tax)
+                                                                               VALUES('$order_item_uid', '$order_id', $product_design_id, '$product_size_id', $color_id, $warranty_id, '$price', '$offer_price', '$count', '$tax')");
+                            } else {
+                                $order_items = mysqli_query($this->mysqli, "INSERT INTO order_item (uid, order_id, product_design_id, product_size_id, price, offer_price, `count`, tax)
+                                                                               VALUES('$order_item_uid', '$order_id', $product_design_id, '$product_size_id', '$price', '$offer_price', '$count', '$tax')");
+                            }
+                            $order_item_id = $this->mysqli->insert_id;
+
+                            $data = array();
+                            $data['name'] = $row2['name'];
+                            $data['image'] = $row2['color_image'] ? $row2['color_image'] : ($row2['design_image'] ? $row2['design_image'] : $row2['image']);
+                            if ($row2['material']) {
+                                $data['material'] = $row2['material'];
+                            }
+                            if ($row2['brand']) {
+                                $data['brand'] = $row2['brand'];
+                            }
+                            if ($row2['code']) {
+                                $data['code'] = $row2['code'];
+                            }
+                            if ($row2['batch_no']) {
+                                $data['batch_no'] = $row2['batch_no'];
+                            }
+                            if ($row2['product_design_id']) {
+                                $data['design'] = $row2['design_name'];
+                            }
+                            if ($row2['size']) {
+                                $data['size'] = $row2['size'] . $row2['size_unit'];
+                            }
+                            if ($color_id) {
+                                $data['color'] = $row2['color_name'];
+                                $data['color_code'] = $row2['color_code'];
+                            }
+                            if ($is_warranty_id) {
+                                $data['warranty'] = $row2['warranty_name'];
+                            }
+                            if ($row2['unit_length']) {
+                                $data['unit_length'] = $row2['unit_length'] . $row2['unit_length_unit'];
+                            }
+                            if ($row2['length']) {
+                                $data['length'] = $row2['length'] . $row2['length_unit'];
+                            }
+                            if ($row2['width']) {
+                                $data['width'] = $row2['width'] . $row2['width_unit'];
+                            }
+                            if ($row2['height']) {
+                                $data['height'] = $row2['height'] . $row2['height_unit'];
+                            }
+                            if ($row2['thickness']) {
+                                $data['thickness'] = $row2['thickness'] . $row2['thickness_unit'];
+                            }
+                            if ($row2['weight']) {
+                                $data['weight'] = $row2['weight'] . $row2['weight_unit'];
+                            }
+                            if ($row2['diameter']) {
+                                $data['diameter'] = $row2['diameter'] . $row2['diameter_unit'];
+                            }
+
+                            foreach ($data as $key => $value) {
+                                $order_items = mysqli_query($this->mysqli, "INSERT INTO order_item_data (order_item_id, field, `value`)
+                                                                               VALUES('$order_item_id', '$key', '$value')");
+                            }
+                        }
+                    } else {
+                        $success = array('status' => "Failed", 'msg' => "Failed to Order");
+                        $this->response($this->json($success), 200);
+                    }
+                } else {
+                    $success = array('status' => "Failed", 'msg' => "Cart Empty");
+                    $this->response($this->json($success), 200);
+                }
+
+
+                if ($order_type == 'online') {
+                    $fields = array();
+                    $amount_val = round($total_amount * 100);
+                    $fields["amount"] = $amount_val;
+                    $fields["currency"] = "INR";
+                    $url = 'https://api.razorpay.com/v1/orders';
+                    $key_id = self::RAZOR_KEY_ID;
+                    $key_secret = self::RAZOR_KEY_SECRET;
+                    $ch = curl_init();
+                    curl_setopt($ch, CURLOPT_URL, $url);
+                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+                    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($fields));
+                    curl_setopt($ch, CURLOPT_POST, 1);
+                    curl_setopt($ch, CURLOPT_USERPWD, $key_id . ":" . $key_secret);
+                    $headers = array();
+                    $headers[] = 'Accept: application/json';
+                    $headers[] = 'Content-Type: application/json';
+                    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+                    $data = curl_exec($ch);
+
+                    if (empty($data) OR (curl_getinfo($ch, CURLINFO_HTTP_CODE != 200))) {
+                        curl_close($ch);
+                        $this->send_mail_variables('order_failed', $order_id);
+
+                        $success = array('status' => "Failed", 'msg' => "Failed");
+                        $this->response($this->json($success), 200);
+                    } else {
+                        $data = json_decode($data, TRUE);
+                        curl_close($ch);
+                        if (isset($data['id'])) {
+                            $payment_order_id = $data['id'];
+                            $success = array('status' => "Success", 'msg' => "Success", 'payment_order_id' => $payment_order_id, 'amount' => $amount_val, 'order_id' => $order_id, 'order_uid' => $order_uid);
+                            $this->response($this->json($success), 200);
+                        } else {
+                            $this->send_mail_variables('order_failed', $order_id);
+
+                            $error = isset($data['error']['description']) ? $data['error']['description'] : 'Failed';
+                            $success = array('status' => "Failed", 'msg' => $error);
+                            $this->response($this->json($success), 200);
+                        }
+                    }
+                } else {
+                    $orders_cash_rlt = mysqli_query($this->mysqli, "UPDATE orders
+                                                                  SET status = 'order_success'
+                                                                  WHERE id = '$order_id'");
+
+                    if ($orders_cash_rlt) {
+                        $query = "SELECT SUM(cart.count) AS count,
+                                         vendor_stock.id AS vendor_stock_id,
+                                         vendor_stock.stock
+                                  FROM cart
+                                  INNER JOIN vendor_stock
+                                  ON vendor_stock.product_size_id = cart.product_size_id
+                                  AND vendor_stock.vendor_id = cart.vendor_id
+                                  AND (vendor_stock.color_id = cart.color_id
+                                  OR cart.color_id IS NULL)
+                                  WHERE cart.user_id = '$user_id'
+                                  AND cart.vendor_id = '$vendor_id'
+                                  GROUP BY vendor_stock.id";
+
+                        $query_rlt = mysqli_query($this->mysqli, $query);
+                        while ($row = mysqli_fetch_array($query_rlt)) {
+                            $vendor_stock_id = $row['vendor_stock_id'];
+                            $stock = $row['stock'];
+                            $count = $row['count'];
+                            if ($stock != 'unlimited') {
+                                $stock_count = $stock - $count;
+                                $vendor_stock_rlt = mysqli_query($this->mysqli, "UPDATE vendor_stock
+                                                                                    SET stock = '$stock_count'
+                                                                                    WHERE id = '$vendor_stock_id'");
+                            }
+                        }
+
+                        $delete_cart = mysqli_query($this->mysqli, "DELETE FROM cart
+                                                                           WHERE user_id = '$user_id'
+                                                                           AND vendor_id = '$vendor_id'");
+
+                        $this->send_mail_variables('order_confirmed', $order_id);
+
+                        $success = array('status' => "Success", 'msg' => "Order Placed Successfully", 'order_uid' => $order_uid);
+                        $this->response($this->json($success), 200);
+                    } else {
+                        $this->send_mail_variables('order_failed', $order_id);
+
+                        $success = array('status' => "Failed", 'msg' => "Failed to Order");
+                        $this->response($this->json($success), 200);
+                    }
+                }
+            } else {
+                $success = array('status' => "Failed", 'msg' => "Vendor is not available");
+                $this->response($this->json($success), 200);
+            }
+        } else {
+            $success = array('status' => "Failed", 'msg' => "User not found");
+            $this->response($this->json($success), 200);
+        }
+    }
+
+    public function place_order()
+    {
+        if ($this->get_request_method() != "POST") {
+            $this->response('', 406);
+        }
+
+        $uid = isset($this->_request['uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['uid']) : null;
+        $vendor_uid = isset($this->_request['vendor_uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['vendor_uid']) : null;
+        $order_id = isset($this->_request['order_id']) ? mysqli_real_escape_string($this->mysqli, $this->_request['order_id']) : null;
+        $payment_order_id = isset($this->_request['payment_order_id']) ? mysqli_real_escape_string($this->mysqli, $this->_request['payment_order_id']) : null;
+        $payment_id = isset($this->_request['payment_id']) ? mysqli_real_escape_string($this->mysqli, $this->_request['payment_id']) : null;
+        $signature = isset($this->_request['signature']) ? mysqli_real_escape_string($this->mysqli, $this->_request['signature']) : null;
+        $total_amt = isset($this->_request['total_amt']) ? mysqli_real_escape_string($this->mysqli, $this->_request['total_amt']) : null;
+
+        $user_id = $this->db_user->isValidUserId($uid);
+        if ($user_id) {
+            $vendor_id = $this->db_user->isValidVendorId($vendor_uid);
+            if ($vendor_id) {
+                $expectedSignature = hash_hmac('sha256', $payment_order_id . '|' . $payment_id, self::RAZOR_KEY_SECRET);
+
+                if ($expectedSignature == $signature) {
+                    $fields = array();
+                    $fields["amount"] = $total_amt;
+                    $fields["settle_full_balance"] = false;
+                    $fields["description"] = 'OrderId: ' . $payment_order_id;
+                    $url = 'https://api.razorpay.com/v1/settlements/ondemand';
+                    $key_id = self::RAZOR_KEY_ID;
+                    $key_secret = self::RAZOR_KEY_SECRET;
+                    $ch = curl_init();
+                    curl_setopt($ch, CURLOPT_URL, $url);
+                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+                    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($fields));
+                    curl_setopt($ch, CURLOPT_POST, 1);
+                    curl_setopt($ch, CURLOPT_USERPWD, $key_id . ":" . $key_secret);
+                    $headers = array();
+                    $headers[] = 'Accept: application/json';
+                    $headers[] = 'Content-Type: application/json';
+                    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+                    $data = curl_exec($ch);
+
+                    $settlement_id = 'null';
+                    $settlement_fee = 'null';
+                    $settlement_tax = 'null';
+                    $settlement_amt_pending = 'null';
+                    if (empty($data) OR (curl_getinfo($ch, CURLINFO_HTTP_CODE != 200))) {
+                        curl_close($ch);
+                    } else {
+                        $data = json_decode($data, TRUE);
+                        curl_close($ch);
+                        if (isset($data['id'])) {
+                            $settlement_id = "'" . $data['id'] . "'";
+                            $settlement_fee = "'" . $data['fees'] / 100 . "'";
+                            $settlement_tax = "'" . $data['tax'] / 100 . "'";
+                            $settlement_amt_pending = "'" . $data['amount_pending'] / 100 . "'";
+                        }
+                    }
+
+                    $orders = mysqli_query($this->mysqli, "UPDATE orders
+                                                                  SET order_id = '$payment_order_id',
+                                                                      payment_id = '$payment_id',
+                                                                      signature = '$signature',
+                                                                      settlement_id = $settlement_id,
+                                                                      settlement_fee = $settlement_fee,
+                                                                      settlement_tax = $settlement_tax,
+                                                                      settlement_amt_pending = $settlement_amt_pending,
+                                                                      status = 'payment_success'
+                                                                  WHERE id = '$order_id'");
+
+                    if ($orders) {
+                        $query = "SELECT SUM(cart.count) AS count,
+                                         vendor_stock.id AS vendor_stock_id,
+                                         vendor_stock.stock
+                                  FROM cart
+                                  INNER JOIN vendor_stock
+                                  ON vendor_stock.product_size_id = cart.product_size_id
+                                  AND vendor_stock.vendor_id = cart.vendor_id
+                                  AND (vendor_stock.color_id = cart.color_id
+                                  OR cart.color_id IS NULL)
+                                  WHERE cart.user_id = '$user_id'
+                                  AND cart.vendor_id = '$vendor_id'
+                                  GROUP BY vendor_stock.id";
+
+                        $query_rlt = mysqli_query($this->mysqli, $query);
+                        while ($row = mysqli_fetch_array($query_rlt)) {
+                            $vendor_stock_id = $row['vendor_stock_id'];
+                            $stock = $row['stock'];
+                            $count = $row['count'];
+                            if ($stock != 'unlimited') {
+                                $stock_count = $stock - $count;
+                                $vendor_stock_rlt = mysqli_query($this->mysqli, "UPDATE vendor_stock
+                                                                                    SET stock = '$stock_count'
+                                                                                    WHERE id = '$vendor_stock_id'");
+                            }
+                        }
+
+                        $delete_cart = mysqli_query($this->mysqli, "DELETE FROM cart
+                                                                           WHERE user_id = '$user_id'
+                                                                           AND vendor_id = '$vendor_id'");
+
+                        $this->send_mail_variables('order_confirmed', $order_id);
+
+                        $success = array('status' => "Success", 'msg' => "Order Placed Successfully");
+                        $this->response($this->json($success), 200);
+                    } else {
+                        $this->send_mail_variables('order_failed', $order_id);
+
+                        $success = array('status' => "Failed", 'msg' => "Failed to Order");
+                        $this->response($this->json($success), 200);
+                    }
+                } else {
+                    $this->send_mail_variables('order_failed', $order_id);
+
+                    $success = array('status' => "Failed", 'msg' => "Payment verification failed");
+                    $this->response($this->json($success), 200);
+                }
+            } else {
+                $success = array('status' => "Failed", 'msg' => "Vendor is not available");
+                $this->response($this->json($success), 200);
+            }
+        } else {
+            $success = array('status' => "Failed", 'msg' => "User not found");
+            $this->response($this->json($success), 200);
+        }
+    }
+
+    public function failed_order()
+    {
+        if ($this->get_request_method() != "POST") {
+            $this->response('', 406);
+        }
+
+        $uid = isset($this->_request['uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['uid']) : null;
+        $vendor_uid = isset($this->_request['vendor_uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['vendor_uid']) : null;
+        $order_id = isset($this->_request['order_id']) ? mysqli_real_escape_string($this->mysqli, $this->_request['order_id']) : null;
+
+        $user_id = $this->db_user->isValidUserId($uid);
+        if ($user_id) {
+            $vendor_id = $this->db_user->isValidVendorId($vendor_uid);
+            if ($vendor_id) {
+                $orders = mysqli_query($this->mysqli, "UPDATE orders 
+                                                              SET status = 'payment_failed'
+                                                              WHERE id = '$order_id'");
+                $this->send_mail_variables('order_failed', $order_id);
+                $success = array('status' => "Success", 'msg' => "Failed to Order");
+                $this->response($this->json($success), 200);
+            } else {
+                $success = array('status' => "Failed", 'msg' => "Vendor is not available");
+                $this->response($this->json($success), 200);
+            }
+        } else {
+            $success = array('status' => "Failed", 'msg' => "User not found");
+            $this->response($this->json($success), 200);
+        }
+    }
+
+    public function send_mail_variables($type, $order_id)
+    {
+        $email_type = mysqli_query($this->mysqli, "SELECT * FROM email_template WHERE `type` = '$type' AND status = 'active'");
+        $variables = array();
+        $email = '';
+        if (mysqli_num_rows($email_type)) {
+            $row = mysqli_fetch_array($email_type);
+            if ($type == 'order_confirmed' || $type == 'order_failed') {
+                $col_name = 'order';
+
+                $query_rlt2 = mysqli_query($this->mysqli, "SELECT 
+                                                                 GROUP_CONCAT(order_item_data.field,':',order_item_data.value) AS product_detail
+                                                                 FROM orders
+                                                                 LEFT JOIN order_item
+                                                                 ON order_item.order_id = orders.id
+                                                                 LEFT JOIN order_item_data
+                                                                 ON order_item_data.order_item_id = order_item.id
+                                                                 WHERE orders.id = '$order_id'
+                                                                 AND order_item_data.field IN ('name','size','color')
+                                                                 GROUP BY order_item.id");
+                $prdt_detail_array_value = array();
+                if (mysqli_num_rows($query_rlt2)) {
+                    while ($prdt_row = mysqli_fetch_array($query_rlt2)) {
+                        $prdt_detail = $prdt_row['product_detail'];
+                        $prdt_detail1 = $row['product_detail'];
+                        $prdt1 = explode(',', $prdt_detail);
+                        foreach ($prdt1 AS $prdt_val) {
+                            $prdt2 = explode(':', $prdt_val);
+                            $field = "'" . $col_name . "_" . $prdt2[0] . "'";
+                            $field = strtoupper($field);
+                            $prdt_key = trim($field, '\'"');
+                            $detail_value = str_replace('{' . $prdt_key . '}', $prdt2[1], $prdt_detail1);
+                            $prdt_detail1 = $detail_value;
+                        }
+                        array_push($prdt_detail_array_value, $prdt_detail1);
+                    }
+                }
+
+                $prdt_detail_data = implode("<br/> ", $prdt_detail_array_value);
+                $prdt_detail_value = str_replace('{ORDER_COLOR}', 'NIL', $prdt_detail_data);
+
+                $query_rlt = mysqli_query($this->mysqli, "SELECT orders.*,
+                                                                       `user`.email,
+                                                                       order_address.full_name,
+                                                                       order_address.phone_number,
+                                                                       order_address.city_district,
+                                                                       order_address.zip,
+                                                                       order_address.address
+                                                                 FROM orders
+                                                                 INNER JOIN `user` 
+                                                                 ON `user`.id = orders.user_id
+                                                                 INNER JOIN order_address
+                                                                 ON order_address.order_id = orders.id
+                                                                 WHERE orders.id = '$order_id'");
+                if (mysqli_num_rows($query_rlt)) {
+                    $row1 = mysqli_fetch_array($query_rlt);
+                    $email = $row1['email'];
+                    foreach ($query_rlt as $key1 => $value1) {
+                        foreach ($value1 as $key => $value) {
+                            $field = "'" . $col_name . "_" . $key . "'";
+                            $field = strtoupper($field);
+                            $variables[$field] = $value;
+                        }
+                    }
+                    $variables['ORDER_PRODUCT_DETAIL'] = $prdt_detail_value;
+                }
+
+            }
+            $subject = $row['subject'];
+            $template = $row['template'];
+            foreach ($variables as $key => $value) {
+                $key = trim($key, '\'"');
+                $template = str_replace('{' . $key . '}', $value, $template);
+            }
+            $this->send_mail($email, $subject, $template);
+        }
+    }
+
+    function send_mail($email, $subject, $template)
+    {
+        // Instantiation and passing `true` enables exceptions
+        $mail = new PHPMailer(true);
+        try {
+            //Server settings
+            $mail->SMTPDebug = 0;  // Enable verbose debug output
+            $mail->isSMTP();     // Send using SMTP
+            $mail->Host = 'smtp.gmail.com'; // Set the SMTP server to send through
+            $mail->SMTPAuth = true;   // Enable SMTP authentication
+            $mail->Username = self::EMAIL;     // SMTP username
+            $mail->Password = self::EMAIL_PASSWORD;  // SMTP password
+            $mail->SMTPSecure = 'tls';  // Enable TLS encryption; `PHPMailer::ENCRYPTION_SMTPS` encouraged
+            $mail->Port = 587;   // TCP port to connect to, use 465 for `PHPMailer::ENCRYPTION_SMTPS` above
+
+            // From email address and name
+            $mail->setFrom(self::EMAIL, 'Naiz');
+
+            // To email addresss
+            $mail->addAddress($email);   // Add a recipient
+            // Content
+            $mail->isHTML(true);  // Set email format to HTML
+            $mail->Subject = $subject;
+            $mail->Body = $template;
+            $mail->send();
+        } catch (Exception $e) {
+        }
+    }
+
+    public function get_order_list()
+    {
+        if ($this->get_request_method() != "POST") {
+            $this->response('', 406);
+        }
+
+        $uid = isset($this->_request['uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['uid']) : null;
+        $page = isset($this->_request['page']) ? mysqli_real_escape_string($this->mysqli, $this->_request['page']) : 1;
+
+        $limit = 15;
+        $lower_limit = ($page - 1) * $limit;
+
+        $user_id = $this->db_user->isValidUserId($uid);
+
+        if ($user_id) {
+            //get order list
+            $orders_query = "SELECT SQL_CALC_FOUND_ROWS
+                                    orders.uid,
+                                    orders.total_cost,
+                                    orders.status,
+                                    orders.timestamp AS order_timestamp,
+                                    order_address.*,
+                                    vendor.place,
+                                    orders.order_type
+                             FROM orders
+                             INNER JOIN vendor
+                             ON vendor.id = orders.vendor_id
+                             LEFT JOIN order_address
+                             ON order_address.order_id = orders.id
+                             WHERE orders.user_id = '$user_id'
+                             ORDER BY orders.timestamp DESC";
+
+            $orders_query .= " LIMIT $lower_limit, $limit";
+
+            $orders = mysqli_query($this->mysqli, $orders_query);
+
+            $count_rlt = mysqli_query($this->mysqli, "SELECT FOUND_ROWS() AS data_count");
+            $count_rlt = mysqli_fetch_assoc($count_rlt);
+            $data_count = $count_rlt['data_count'];
+            $total_pages = ceil($data_count / $limit);
+
+            $orders_datas = array();
+            if (mysqli_num_rows($orders)) {
+                $order_rlt = array();
+                while ($row = $orders->fetch_assoc()) {
+                    $order_rlt['uid'] = $row['uid'];
+                    $order_rlt['total_cost'] = $row['total_cost'];
+                    $order_rlt['status'] = ucwords(str_replace('_', ' ', $row['status']));
+                    $order_rlt['place'] = $row['place'];
+                    $dt = new DateTime($row['order_timestamp'], new DateTimeZone('UTC'));
+                    $dt->setTimezone(new DateTimezone('Asia/Kolkata'));
+                    $order_rlt['timestamp'] = $dt->format('d M, Y h:i A ');
+                    $order_rlt['full_name'] = $row['full_name'];
+                    $order_rlt['phone_number'] = $row['phone_number'];
+                    $order_rlt['city_district'] = $row['city_district'];
+                    $order_rlt['zip'] = $row['zip'];
+                    $order_rlt['address'] = $row['address'];
+                    $order_rlt['type'] = $row['type'];
+                    $order_rlt['order_type'] = $row['order_type'] == 'cod' ? "Cash on Delivery" : "Online Payment";
+                    array_push($orders_datas, $order_rlt);
+                }
+            }
+
+            $load_more = ($total_pages == 0 || $total_pages == $page) ? false : true;
+            $success = array('status' => "Success", 'msg' => "Orders Fetched", 'orders' => $orders_datas, 'load_more' => $load_more);
+            $this->response($this->json($success), 200);
+        } else {
+            $success = array('status' => "Failed", 'msg' => "User not found");
+            $this->response($this->json($success), 200);
+        }
+    }
+
+    public function get_order_item_list()
+    {
+        if ($this->get_request_method() != "POST") {
+            $this->response('', 406);
+        }
+
+        $uid = isset($this->_request['uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['uid']) : null;
+        $order_uid = isset($this->_request['order_uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['order_uid']) : null;
+        $user_id = $this->db_user->isValidUserId($uid);
+
+        if ($user_id) {
+            $order_id = $this->db_user->isValidOrderId($order_uid);
+
+            if ($order_id) {
+                $orders = mysqli_query($this->mysqli, "SELECT order_item.*,
+                                                                 GROUP_CONCAT(CONCAT(order_item_data.field,':',order_item_data.value) separator ', ') AS order_datas,
+                                                                 vendor.place,
+                                                                 orders.status AS order_status
+                                                          FROM orders 
+                                                          INNER JOIN order_item 
+                                                          ON order_item.order_id = orders.id 
+                                                          INNER JOIN order_item_data 
+                                                          ON order_item_data.order_item_id = order_item.id
+                                                          INNER JOIN vendor
+                                                          ON vendor.id = orders.vendor_id
+                                                          LEFT JOIN color
+                                                          ON color.id = order_item.color_id
+                                                          LEFT JOIN warranty
+                                                          ON warranty.id = order_item.warranty_id
+                                                          LEFT JOIN product_design
+                                                          ON product_design.id = order_item.product_design_id    
+                                                          WHERE orders.user_id = '$user_id'
+                                                          AND orders.id = '$order_id'
+                                                          GROUP BY order_item.id
+                                                          ORDER BY order_item.timestamp DESC");
+                $orders_datas = array();
+                if (mysqli_num_rows($orders)) {
+                    while ($row = $orders->fetch_assoc()) {
+                        $order_rlt = array();
+                        if ($row['order_datas']) {
+                            $order_data = array();
+                            $order_detail = explode(', ', $row['order_datas']);
+                            foreach ($order_detail as $value) {
+                                $field_value = explode(':', $value);
+                                $order_data[$field_value[0]] = $field_value[1];
+                            }
+                        }
+                        $order_rlt['name'] = $order_data['name'];
+                        $order_rlt['size'] = $order_data['size'];
+                        if (isset($order_data['color_code'])) {
+                            $order_rlt['color_code'] = $order_data['color_code'];
+                        }
+                        if (isset($order_data['warranty'])) {
+                            $order_rlt['warranty'] = $order_data['warranty'];
+                        }
+                        if (isset($order_data['design'])) {
+                            $order_rlt['design'] = $order_data['design'];
+                        }
+                        $order_rlt['image'] = self::URL . 'vendor_data/product/' . $order_data['image'];
+                        $display_price = $row['offer_price'] > 0 ? $row['offer_price'] : $row['price'];
+                        $order_rlt['stock_count'] = $row['count'];
+                        $order_rlt['display_price'] = $display_price * $row['count'];
+                        if ($row['order_status'] == 'payment_success' || $row['order_status'] == 'order_success') {
+                            $order_rlt['status'] = $row['status'];
+                            if ($row['status'] == 'approved' || $row['status'] == 'declined') {
+                                $dt = new DateTime($row['approved_declined_date'], new DateTimeZone('UTC'));
+                                $dt->setTimezone(new DateTimezone('Asia/Kolkata'));
+                                $order_rlt['approved_declined_date'] = $dt->format('d M, Y h:i A');
+                            } else {
+                                $order_rlt['approved_declined_date'] = '';
+                            }
+                        } else {
+                            $order_rlt['status'] = '';
+                            $order_rlt['approved_declined_date'] = '';
+                        }
+                        $order_rlt['timestamp'] = $row['timestamp'];
+                        array_push($orders_datas, $order_rlt);
+                    }
+                }
+                $success = array('status' => "Success", 'msg' => "Orders Fetched", 'order_item' => $orders_datas);
+                $this->response($this->json($success), 200);
+            } else {
+                $success = array('status' => "Failed", 'msg' => "Order not found");
+                $this->response($this->json($success), 200);
+            }
+        } else {
+            $success = array('status' => "Failed", 'msg' => "User not found");
+            $this->response($this->json($success), 200);
+        }
+    }
+
+    public function forgot_password()
+    {
+        if ($this->get_request_method() != "POST") {
+            $this->response('', 406);
+        }
+        $email = isset($this->_request['email']) ? mysqli_real_escape_string($this->mysqli, $this->_request['email']) : null;
+        $user_email = mysqli_query($this->mysqli, "SELECT id FROM `user` WHERE email = '$email'");
+        if (mysqli_num_rows($user_email)) {
+            $row = mysqli_fetch_array($user_email);
+            $user_id = $row['id'];
+            $token = $this->create_random_string(16);
+            $update_user = mysqli_query($this->mysqli, "UPDATE `user` SET token = '$token' WHERE id = '$user_id'");
+            // Instantiation and passing `true` enables exceptions
+            $mail = new PHPMailer(true);
+            try {
+                //Server settings
+                $mail->SMTPDebug = 0;  // Enable verbose debug output
+                $mail->isSMTP();     // Send using SMTP
+                $mail->Host = 'smtp.gmail.com'; // Set the SMTP server to send through
+                $mail->SMTPAuth = true;   // Enable SMTP authentication
+                $mail->Username = self::EMAIL;     // SMTP username
+                $mail->Password = self::EMAIL_PASSWORD;  // SMTP password
+                $mail->SMTPSecure = 'tls';  // Enable TLS encryption; `PHPMailer::ENCRYPTION_SMTPS` encouraged
+                $mail->Port = 587;   // TCP port to connect to, use 465 for `PHPMailer::ENCRYPTION_SMTPS` above
+
+                // From email address and name
+                $mail->setFrom(self::EMAIL, 'Naiz');
+
+                // To email addresss
+                $mail->addAddress($email);   // Add a recipient
+                // Content
+                $mail->isHTML(true);  // Set email format to HTML
+                $mail->Subject = 'Reset Password';
+                $forgot_pwd_url = self::URL . 'reset_password?token=' . $token;
+                $mail->Body = "<a href='$forgot_pwd_url'>Click here</a> to reset your password for Naiz";
+
+                $mail->send();
+                $success = array('status' => "Success", 'msg' => 'Mail has been sent');
+                $this->response($this->json($success), 200);
+
+            } catch (Exception $e) {
+                $success = array('status' => "Failed", 'msg' => $e->getMessage());
+                $this->response($this->json($success), 200);
+            }
+        } else {
+            $success = array('status' => "Failed", 'msg' => "Mail has been sent");
+            $this->response($this->json($success), 200);
+        }
+    }
+
+    public function add_product_review()
+    {
+        if ($this->get_request_method() != "POST") {
+            $this->response('', 406);
+        }
+
+        $uid = isset($this->_request['uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['uid']) : null;
+        $product_uid = isset($this->_request['product_uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['product_uid']) : null;
+        $rating = isset($this->_request['rating']) ? mysqli_real_escape_string($this->mysqli, $this->_request['rating']) : null;
+        $review = isset($this->_request['review']) && mysqli_real_escape_string($this->mysqli, $this->_request['review']) != '' ? "'" . mysqli_real_escape_string($this->mysqli, $this->_request['review']) . "'" : 'null';
+
+        $user_id = $this->db_user->isValidUserId($uid);
+        if ($user_id) {
+            $product_id = $this->db_user->isValidProductId($product_uid);
+            if ($product_id) {
+                $prdt_review_rlt = mysqli_query($this->mysqli, "INSERT INTO product_review (product_id, user_id, rating, review)
+                                                                        VALUES('$product_id', '$user_id', '$rating', $review)");
+                if ($prdt_review_rlt) {
+                    date_default_timezone_set("Asia/Kolkata");
+                    $time = new DateTime();
+                    $time->setTimezone(new DateTimezone('Asia/Kolkata'));
+                    $date = $time->format('d M, y');
+                    $success = array('status' => "Success", 'msg' => "Review Added Successfully", "date" => $date);
+                    $this->response($this->json($success), 200);
+                } else {
+                    $success = array('status' => "Failed", 'msg' => "Failed to Add Review");
+                    $this->response($this->json($success), 200);
+                }
+            } else {
+                $success = array('status' => "Failed", 'msg' => "Product not found");
+                $this->response($this->json($success), 200);
+            }
+        } else {
+            $success = array('status' => "Failed", 'msg' => "User not found");
+            $this->response($this->json($success), 200);
+        }
+    }
+
+    public function update_product_review()
+    {
+        if ($this->get_request_method() != "POST") {
+            $this->response('', 406);
+        }
+
+        $uid = isset($this->_request['uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['uid']) : null;
+        $product_uid = isset($this->_request['product_uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['product_uid']) : null;
+        $product_review_id = isset($this->_request['product_review_id']) ? mysqli_real_escape_string($this->mysqli, $this->_request['product_review_id']) : null;
+        $rating = isset($this->_request['rating']) ? mysqli_real_escape_string($this->mysqli, $this->_request['rating']) : null;
+        $review = isset($this->_request['review']) && mysqli_real_escape_string($this->mysqli, $this->_request['review']) != '' ? "'" . mysqli_real_escape_string($this->mysqli, $this->_request['review']) . "'" : 'null';
+
+        $user_id = $this->db_user->isValidUserId($uid);
+        if ($user_id) {
+            $product_id = $this->db_user->isValidProductId($product_uid);
+            if ($product_id) {
+                $prdt_review_rlt = mysqli_query($this->mysqli, "UPDATE product_review 
+                                                                       SET rating = '$rating', 
+                                                                            review = $review
+                                                                       WHERE id = '$product_review_id'");
+                if ($prdt_review_rlt) {
+                    $success = array('status' => "Success", 'msg' => "Review Updated Successfully");
+                    $this->response($this->json($success), 200);
+                } else {
+                    $success = array('status' => "Failed", 'msg' => "Failed to Update Review");
+                    $this->response($this->json($success), 200);
+                }
+            } else {
+                $success = array('status' => "Failed", 'msg' => "Product not found");
+                $this->response($this->json($success), 200);
+            }
+        } else {
+            $success = array('status' => "Failed", 'msg' => "User not found");
+            $this->response($this->json($success), 200);
+        }
+    }
+
+    public function get_product_review()
+    {
+        if ($this->get_request_method() != "POST") {
+            $this->response('', 406);
+        }
+
+        $uid = isset($this->_request['uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['uid']) : null;
+        $product_uid = isset($this->_request['product_uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['product_uid']) : null;
+        $page = isset($this->_request['page']) ? mysqli_real_escape_string($this->mysqli, $this->_request['page']) : 1;
+
+        $limit = 15;
+        $lower_limit = ($page - 1) * $limit;
+
+        $user_id = $this->db_user->isValidUserId($uid);
+        if ($user_id) {
+            $product_id = $this->db_user->isValidProductId($product_uid);
+            if ($product_id) {
+                $prdt_review_query = "SELECT SQL_CALC_FOUND_ROWS
+                                             product_review.*,
+                                             `user`.full_name,
+                                             `user`.uid
+                                      FROM product_review
+                                      INNER JOIN `user`
+                                      ON `user`.id = product_review.user_id
+                                      WHERE product_review.product_id = '$product_id'
+                                      ORDER BY product_review.timestamp DESC";
+
+                $prdt_review_query .= " LIMIT $lower_limit, $limit";
+
+                $prdt_review = mysqli_query($this->mysqli, $prdt_review_query);
+
+                $count_rlt = mysqli_query($this->mysqli, "SELECT FOUND_ROWS() AS data_count");
+                $count_rlt = mysqli_fetch_assoc($count_rlt);
+                $data_count = $count_rlt['data_count'];
+                $total_pages = ceil($data_count / $limit);
+
+                $product_review_data = array();
+                $total_rating = 0;
+                $total_review_user = mysqli_num_rows($prdt_review);
+                if (mysqli_num_rows($prdt_review)) {
+                    while ($row = $prdt_review->fetch_assoc()) {
+                        $product_review_rlt['name'] = $row['full_name'];
+                        $product_review_rlt['user_uid'] = $row['uid'];
+                        $product_review_rlt['product_review_id'] = $row['id'];
+                        $product_review_rlt['review'] = $row['review'];
+                        $product_review_rlt['rating'] = $row['rating'];
+                        date_default_timezone_set("Asia/Kolkata");
+                        $time = new DateTime($row['timestamp'], new DateTimeZone('UTC'));
+                        $time->setTimezone(new DateTimezone('Asia/Kolkata'));
+                        $product_review_rlt['date'] = $time->format('d M, y');
+                        $total_rating = $total_rating + $row['rating'];
+                        array_push($product_review_data, $product_review_rlt);
+                    }
+                }
+                $average = $total_review_user > 0 ? $total_rating / $total_review_user : 0;
+                $product_data['product_review'] = $product_review_data;
+                $product_data['product_rating'] = round($average, 1);
+
+                $load_more = ($total_pages == 0 || $total_pages == $page) ? false : true;
+                $success = array('status' => "Success", 'msg' => "Reviews Fetched", 'review' => $product_data, 'load_more' => $load_more);
+                $this->response($this->json($success), 200);
+            } else {
+                $success = array('status' => "Failed", 'msg' => "Product not found");
+                $this->response($this->json($success), 200);
+            }
+        } else {
+            $success = array('status' => "Failed", 'msg' => "User not found");
+            $this->response($this->json($success), 200);
+        }
+    }
+
+    public function applied_promo_code()
+    {
+        if ($this->get_request_method() != "POST") {
+            $this->response('', 406);
+        }
+
+        $uid = isset($this->_request['uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['uid']) : null;
+        $vendor_uid = isset($this->_request['vendor_uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['vendor_uid']) : null;
+        $promo_code = isset($this->_request['promo_code']) ? mysqli_real_escape_string($this->mysqli, $this->_request['promo_code']) : null;
+        $total_cost = isset($this->_request['total_cost']) ? mysqli_real_escape_string($this->mysqli, $this->_request['total_cost']) : null;
+
+        $user_id = $this->db_user->isValidUserId($uid);
+        if ($user_id) {
+            $vendor_id = $this->db_user->isValidVendorId($vendor_uid);
+            if ($vendor_id) {
+                $current_date = date('Y-m-d');
+                $promo_code_check = mysqli_query($this->mysqli, "SELECT SUM(CASE WHEN (table1.warranty_price > 0
+                                                                               AND table1.warranty_price IS NOT NULL) 
+                                                                               THEN (table1.warranty_price  * table1.count)
+                                                                               ELSE (table1.price  * table1.count) END) AS display_price_val,
+                                                                               table1.id, 
+                                                                               table1.flat_rate, 
+                                                                               table1.flat_rate_percent, 
+                                                                               table1.category 
+                                                                               FROM (SELECT promo_code.id, 
+                                                                                            promo_code.flat_rate, 
+                                                                                            promo_code.flat_rate_percent, 
+                                                                                            GROUP_CONCAT(DISTINCT category.name SEPARATOR ', ') AS category,
+                                                                                            product_size.offer_price  AS offer_price_val, 
+                                                                                            product_size.price  AS price_val,
+                                                                                            product_size_color_warranty.offer_price AS warranty_offer_price_val, 
+                                                                                            product_size_color_warranty.price AS warranty_price_val,
+                                                                                            (CASE WHEN (product_size_color_warranty.offer_price > 0
+                                                                                            AND product_size_color_warranty.offer_price IS NOT NULL) 
+                                                                                            THEN product_size_color_warranty.offer_price
+                                                                                            ELSE product_size_color_warranty.price END) AS warranty_price,
+                                                                                            (CASE WHEN product_size.offer_price > 0 
+                                                                                            THEN product_size.offer_price
+                                                                                            ELSE product_size.price END) AS price,
+                                                                                            cart.count,
+                                                                                            cart.color_id,
+                                                                                            product_size.id AS prdt_size_id
+                                                                        FROM cart
+                                                                        LEFT JOIN product_size
+                                                                        ON product_size.id = cart.product_size_id
+                                                                        LEFT JOIN product_size_color
+                                                                        ON product_size_color.product_size_id = cart.product_size_id
+                                                                        LEFT JOIN product_size_color_warranty
+                                                                        ON product_size_color_warranty.product_size_color_id = product_size_color.id
+                                                                        AND product_size_color.color_id = cart.color_id
+                                                                        AND product_size_color_warranty.warranty_id = cart.warranty_id
+                                                                        LEFT JOIN product_category
+                                                                        ON product_category.product_id = product_size.product_id
+                                                                        LEFT JOIN category
+                                                                        ON category.id = product_category.category_id
+                                                                        AND category.status = 'active' 
+                                                                        LEFT JOIN category_promo_code
+                                                                        ON category_promo_code.category_id = category.id
+                                                                        LEFT JOIN promo_code
+                                                                        ON promo_code.id = category_promo_code.promo_code_id
+                                                                        AND promo_code.code = BINARY '$promo_code'
+                                                                        AND (promo_code.expiry_date >= '$current_date'
+                                                                        OR promo_code.expiry_date IS NULL)
+                                                                        AND promo_code.status = 'active'
+                                                                        WHERE cart.user_id = '$user_id'
+                                                                        AND cart.vendor_id = '$vendor_id'
+                                                                        AND (promo_code.flat_rate IS NOT NULL 
+                                                                        OR promo_code.flat_rate_percent IS NOT NULL)
+                                                                        GROUP BY cart.id) AS table1");
+                if (mysqli_num_rows($promo_code_check)) {
+                    $rate = 0;
+                    $row = mysqli_fetch_array($promo_code_check);
+                    if ($row['id']) {
+                        $promo_code_id = $row['id'];
+                        $display_price = $row['display_price_val'];
+                        $flat_rate = $row['flat_rate'];
+                        $flat_rate_percent = $row['flat_rate_percent'];
+                        $category = $row['category'];
+                        if ($flat_rate) {
+                            if ($display_price >= $flat_rate) {
+                                $rate = $flat_rate;
+                            } else {
+                                $success = array('status' => "Failed", 'msg' => "Price of the products under $category must be greater than Rs." . $flat_rate);
+                                $this->response($this->json($success), 200);
+                            }
+                        } else if ($flat_rate_percent) {
+                            $rate = $display_price * ($flat_rate_percent / 100);
+                            if ($display_price >= $rate) {
+                            } else {
+                                $success = array('status' => "Failed", 'msg' => "Price of the products under $category must be greater than Rs." . $rate);
+                                $this->response($this->json($success), 200);
+                            }
+                        }
+
+                        $user_promo_code_exist_check = mysqli_query($this->mysqli, "SELECT id FROM orders 
+                                                                                       WHERE user_id = '$user_id' 
+                                                                                       AND promo_code_id = '$promo_code_id'
+                                                                                       AND (status = 'payment_success'
+                                                                                       OR status = 'order_success')");
+                        if (!mysqli_num_rows($user_promo_code_exist_check)) {
+                            $success = array('status' => "Success", 'msg' => "Promo Code Applied Successfully", 'flat_rate' => $rate, 'promo_code_id' => $promo_code_id);
+                            $this->response($this->json($success), 200);
+                        } else {
+                            $success = array('status' => "Failed", 'msg' => "Already Applied", 'flat_rate' => 0, 'promo_code_id' => '');
+                            $this->response($this->json($success), 200);
+                        }
+                    } else {
+                        $success = array('status' => "Failed", 'msg' => "Invalid Promo Code");
+                        $this->response($this->json($success), 200);
+                    }
+                } else {
+                    $success = array('status' => "Failed", 'msg' => "Invalid Promo Code");
+                    $this->response($this->json($success), 200);
+                }
+            } else {
+                $success = array('status' => "Failed", 'msg' => "Vendor not found");
+                $this->response($this->json($success), 200);
+            }
+        } else {
+            $success = array('status' => "Failed", 'msg' => "User not found");
+            $this->response($this->json($success), 200);
+        }
+    }
+
+    public function get_questions_list()
+    {
+        if ($this->get_request_method() != "POST") {
+            $this->response('', 406);
+        }
+
+        $uid = isset($this->_request['uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['uid']) : null;
+        $user_id = $this->db_user->isValidUserId($uid);
+
+        if ($user_id) {
+            $question = mysqli_query($this->mysqli, "SELECT * FROM faq
+                                                            WHERE status = 'active'
+                                                            ORDER BY `timestamp` DESC");
+            $question_rlt_data = array();
+            if (mysqli_num_rows($question)) {
+                while ($row = $question->fetch_assoc()) {
+                    $question_rlt['faq_question'] = $row['question'];
+                    $question_rlt['faq_answer'] = $row['answer'];
+                    array_push($question_rlt_data, $question_rlt);
+                }
+            }
+
+            $success = array('status' => "Success", 'msg' => "FAQ Fetched", 'questions' => $question_rlt_data);
+            $this->response($this->json($success), 200);
+        } else {
+            $success = array('status' => "Failed", 'msg' => "User not found");
+            $this->response($this->json($success), 200);
+        }
+    }
+
+    public function google_login()
+    {
+        if ($this->get_request_method() != "POST") {
+            $this->response('', 406);
+        }
+        $token = isset($this->_request['token']) ? mysqli_real_escape_string($this->mysqli, $this->_request['token']) : null;
+
+        $tokenParts = explode(".", $token);
+        $tokenPayload = base64_decode($tokenParts[0]);
+        $jwtPayload = json_decode($tokenPayload);
+        $kid = $jwtPayload->kid;
+        $data = file_get_contents('https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com');
+        $private_data = json_decode($data, true);
+        $_key = $private_data[$kid];
+        JWT::$leeway = 10;
+        $decoded = JWT::decode($token, new Key($_key, 'RS256'));
+        $email = $decoded->email;
+
+        $user = mysqli_query($this->mysqli, "SELECT *
+                                                    FROM `user`
+                                                    WHERE email = '$email'
+                                                    AND status = 'active'");
+        if (mysqli_num_rows($user)) {
+            $row = $user->fetch_assoc();
+            $user_data['uid'] = $row['uid'];
+            $user_data['full_name'] = $row['full_name'];
+            $user_data['mobile'] = $row['mobile'];
+            $user_data['email'] = $email;
+            $user_data['pic'] = $row['image'] ? self::URL . 'vendor_data/user/' . $row['image'] : '';
+            $success = array('status' => "Success", 'msg' => "Login Success", 'user' => $user_data);
+            $this->response($this->json($success), 200);
+        } else {
+            $success = array('status' => "Failed", 'msg' => "Login Failed");
+            $this->response($this->json($success), 200);
+        }
+    }
+
+    public function get_vendor_pincode()
+    {
+        if ($this->get_request_method() != "POST") {
+            $this->response('', 406);
+        }
+
+        $uid = isset($this->_request['uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['uid']) : null;
+        $vendor_uid = isset($this->_request['vendor_uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['vendor_uid']) : null;
+        $user_id = $this->db_user->isValidUserId($uid);
+
+        if ($user_id) {
+            $vendor_id = $this->db_user->isValidVendorId($vendor_uid);
+            if ($vendor_id) {
+                $pincode_rlt = mysqli_query($this->mysqli, "SELECT * FROM vendor_pincode
+                                                                  WHERE status = 'active'
+                                                                  AND vendor_id = '$vendor_id'
+                                                                  ORDER BY `timestamp` DESC");
+                $pincode = array();
+                if (mysqli_num_rows($pincode_rlt)) {
+                    while ($row = $pincode_rlt->fetch_assoc()) {
+                        $pincode_fee_rlt['pincode'] = $row['pincode'];
+                        $pincode_fee_rlt['shipping_fee'] = $row['shipping_fee'];
+                        array_push($pincode, $pincode_fee_rlt);
+                    }
+                }
+
+                $success = array('status' => "Success", 'msg' => "Pincode Fetched", 'pincode' => $pincode);
+                $this->response($this->json($success), 200);
+            } else {
+                $success = array('status' => "Failed", 'msg' => "Vendor not found");
+                $this->response($this->json($success), 200);
+            }
+        } else {
+            $success = array('status' => "Failed", 'msg' => "User not found");
+            $this->response($this->json($success), 200);
+        }
+    }
+
+    public function remove_from_cart()
+    {
+        if ($this->get_request_method() != "POST") {
+            $this->response('', 406);
+        }
+
+        $uid = isset($this->_request['uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['uid']) : null;
+        $vendor_uid = isset($this->_request['vendor_uid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['vendor_uid']) : null;
+        $cart_id = isset($this->_request['cart_id']) ? mysqli_real_escape_string($this->mysqli, $this->_request['cart_id']) : null;
+        $user_id = $this->db_user->isValidUserId($uid);
+
+        if ($user_id) {
+            $vendor_id = $this->db_user->isValidVendorId($vendor_uid);
+            if ($vendor_id) {
+                $cart_rlt = mysqli_query($this->mysqli, "SELECT * FROM cart 
+                                                                WHERE id = '$cart_id'");
+
+                if (mysqli_num_rows($cart_rlt)) {
+                    $delete_cart_rlt = mysqli_query($this->mysqli, "DELETE FROM cart
+                                                                          WHERE id = '$cart_id'");
+
+                    if ($delete_cart_rlt) {
+                        $success = array('status' => "Success", 'msg' => "Product Removed from Cart");
+                        $this->response($this->json($success), 200);
+                    } else {
+                        $success = array('status' => "Failed", 'msg' => "Failed");
+                        $this->response($this->json($success), 200);
+                    }
+                } else {
+                    $success = array('status' => "Failed", 'msg' => "Failed");
+                    $this->response($this->json($success), 200);
+                }
+            } else {
+                $success = array('status' => "Failed", 'msg' => "Vendor is not available");
+                $this->response($this->json($success), 200);
+            }
+        } else {
+            $success = array('status' => "Failed", 'msg' => "User not found");
+            $this->response($this->json($success), 200);
+        }
+    }
+
+
+    //TODO    private functions starts
+    private function json($data)
+    {
+        if (is_array($data)) {
+            return json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        }
+    }
+
+    function create_random_string($length)
+    {
+        $characters = '123456789abcdefghijklmnpqrstuvwxyzABCDEFGHIJKLMNPQRSTUVWXYZ';
+        $charactersLength = strlen($characters);
+        $randomString = '';
+        for ($i = 0; $i < $length; $i++) {
+            $randomString .= $characters[rand(0, $charactersLength - 1)];
+        }
+        return $randomString;
+    }
+
+    function create_alpha_numeric_string($length)
+    {
+        $characters = '123456789ABCDEFGHIJKLMNPQRSTUVWXYZ';
+        $charactersLength = strlen($characters);
+        $randomString = '';
+        for ($i = 0; $i < $length; $i++) {
+            $randomString .= $characters[rand(0, $charactersLength - 1)];
+        }
+        return $randomString;
+    }
+}
+
+// Initiate Library
+$api = new API;
+$api->processApi();

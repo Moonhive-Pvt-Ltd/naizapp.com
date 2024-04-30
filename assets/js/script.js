@@ -1,5 +1,5 @@
 $(document).ready(function () {
-    let BASE_URL = 'https://naizapp.com/api/v1/user_web/';
+    let BASE_URL = 'http://localhost/naizapp.com/api/v1/user_web/';
 
     const Toast = Swal.mixin({
         toast: true,
@@ -1049,6 +1049,23 @@ $(document).ready(function () {
         }
     });
 
+    $(document).on('click', '.open-shipping-track-click', function () {  
+        var dataid = $(this).attr("id"); 
+        var logisticsid = $(this).attr("data-logisticsid");
+        var params = {
+            key1: dataid,
+            key2: logisticsid 
+        }
+        var myModal = new bootstrap.Modal(document.getElementById('modalDivId'), {
+            backdrop: 'static',
+            keyboard: false
+        });
+        myModal.show();
+        modalContent('shipping', params);
+       
+    });
+
+
     $(document).on('click', '#vendorListId .single-store', function () {
         let vendor_uid = $(this).attr('vendor-uid');
         $('#vendorListId .single-store').removeClass('selected-store');
@@ -1646,14 +1663,16 @@ function getCookie(cookie_name) {
 
 function modalContent(modal_type, params) {
     var url = '';
-    var data = '';
+    var data = params;
     if (modal_type == 'store_list') {
         url = "includes/modals/store_list_modal_content.php";
     } else if (modal_type == 'login') {
         url = "includes/modals/login_modal_content.php";
     } else if (modal_type == 'landing_page') {
         url = "includes/modals/landing_modal_content.php";
-    }
+    } else if (modal_type == 'shipping') {
+        url = "includes/modals/order_tracking_content.php";
+    } 
     $.ajax({
         type: "GET",
         url: url,
@@ -1662,7 +1681,7 @@ function modalContent(modal_type, params) {
         beforeSend: function () {
             $("#modalDivContent").html('');
         },
-        success: function (html) {
+        success: function (html) {  
             $("#modalDivContent").html(html);
         }
     })
