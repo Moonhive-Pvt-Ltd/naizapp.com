@@ -1051,7 +1051,7 @@ $(document).ready(function () {
 
     $(document).on('click', '.open-shipping-track-click', function () {  
         var dataid = $(this).attr("id"); 
-        var logisticsid = $(this).attr("data-logisticsid");
+        var logisticsid = $(this).attr("data-logisticsid"); 
         var params = {
             key1: dataid,
             key2: logisticsid 

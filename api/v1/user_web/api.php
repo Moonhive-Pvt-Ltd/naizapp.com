@@ -1206,7 +1206,7 @@ class API extends REST
         $page = isset($this->_request['page']) ? mysqli_real_escape_string($this->mysqli, $this->_request['page']) : null;
         $design_id = isset($this->_request['design_id']) && mysqli_real_escape_string($this->mysqli, $this->_request['design_id']) != '' ? "'" . mysqli_real_escape_string($this->mysqli, $this->_request['design_id']) . "'" : 'null';
 
-        if ($warranty_id == 0) {
+        if ($warranty_id === 0) {
             $success = array('status' => "Failed", 'msg' => "Warranty not found");
             $this->response($this->json($success), 200);
         };
@@ -1485,19 +1485,30 @@ class API extends REST
 
         if ($user_id) { 
             //get order list 
-            // $orders = mysqli_query($this->mysqli, "SELECT SQL_CALC_FOUND_ROWS orders.*vendor.place FROM orders INNER JOIN vendor ON vendor.id = orders.vendor_id WHERE orders.user_id  = '$user_id' ORDER BY orders.timestamp DESC  LIMIT $lower_limit, $limit");
+            // echo "SELECT SQL_CALC_FOUND_ROWS orders.*,
+            // vendor.place,order_shipping.shippingorderid as logisticsid,order_shipping.orginalorderid
+            // FROM orders
+            // LEFT JOIN ORDER_SHIPPING 
+
+            // ON order_shipping.orginalorderid = orders.id
+
+            // INNER JOIN vendor
+            // ON vendor.id = orders.vendor_id
+            // WHERE orders.user_id = '$user_id'
+            // ORDER BY orders.timestamp DESC
+            // LIMIT $lower_limit, $limit";
             $orders = mysqli_query($this->mysqli, "SELECT SQL_CALC_FOUND_ROWS orders.*,
-            vendor.place,order_shipping.order_id as logisticsid,order_shipping.orginalorderid
-     FROM orders
-     LEFT JOIN ORDER_SHIPPING 
+            vendor.place,order_shipping.shiprocketorderid as logisticsid,order_shipping.orginalorderid
+            FROM orders
+            LEFT JOIN order_shipping 
 
-     ON order_shipping.orginalorderid = orders.id
+            ON order_shipping.orginalorderid = orders.id
 
-     INNER JOIN vendor
-     ON vendor.id = orders.vendor_id
-     WHERE orders.user_id = '$user_id'
-     ORDER BY orders.timestamp DESC
-     LIMIT $lower_limit, $limit");
+            INNER JOIN vendor
+            ON vendor.id = orders.vendor_id
+            WHERE orders.user_id = '$user_id'
+            ORDER BY orders.timestamp DESC
+            LIMIT $lower_limit, $limit");
             $count_rlt = mysqli_query($this->mysqli, "SELECT FOUND_ROWS() AS data_count");
             $count_rlt = mysqli_fetch_assoc($count_rlt);
             $data_count = $count_rlt['data_count'];
@@ -1507,7 +1518,7 @@ class API extends REST
             if (mysqli_num_rows($orders)) {
                 $order_rlt = array();
                 while ($row = $orders->fetch_assoc()) {
-                    $order_rlt['logisticsid'] = $row['logisticsid'];
+                    $order_rlt['logisticsid'] = $row['logisticsid']; 
                     $order_rlt['orginalorderid'] = $row['orginalorderid'];
                     $order_rlt['uid'] = $row['uid'];
                     $order_rlt['total_cost'] = $row['total_cost'];
@@ -2965,6 +2976,197 @@ class API extends REST
             $randomString .= $characters[rand(0, $charactersLength - 1)];
         }
         return $randomString;
+    }
+
+
+    public function trackLogisticsOrder()
+    {
+        if ($this->get_request_method() != "POST") {
+            $this->response('', 406);
+        }
+        $order_id = isset($this->_request['orderid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['orderid']) : null;
+
+        $shiprocketorderid =  isset($this->_request['shiprocketorderid']) ? mysqli_real_escape_string($this->mysqli, $this->_request['shiprocketorderid']) : null;
+    
+        
+        $shiptokenhaving = mysqli_query($this->mysqli, "SELECT ship_rocket_token from shiprocket_token ORDER BY id DESC LIMIT 1");
+        $num = mysqli_num_rows($shiptokenhaving);
+
+        if ($num == 0) {  
+            $curl = curl_init();
+
+            curl_setopt_array($curl, array(
+                CURLOPT_URL => 'https://apiv2.shiprocket.in/v1/external/auth/login',
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_ENCODING => '',
+                CURLOPT_MAXREDIRS => 10,
+                CURLOPT_TIMEOUT => 0,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+                CURLOPT_CUSTOMREQUEST => 'POST',
+                CURLOPT_POSTFIELDS => '{
+                "email": "vanooja@moonhive.in",
+                "password": "Vanooja#345"
+            }',
+                CURLOPT_HTTPHEADER => array(
+                    'Content-Type: application/json'
+                ),
+            ));
+    
+            $tokenjson = curl_exec($curl);
+    
+            curl_close($curl);
+    
+            $tokenArray = json_decode($tokenjson, true);
+            $SHIPROCKETTOKEN = $tokenArray['token'];
+            $rlt = mysqli_query($this->mysqli, "INSERT INTO shiprocket_token (ship_rocket_token)VALUES('$SHIPROCKETTOKEN')");
+              
+        }else{
+            $query_row = mysqli_fetch_array($shiptokenhaving);         
+             $SHIPROCKETTOKEN = $query_row['ship_rocket_token'];
+        } 
+        //$SHIPROCKETTOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjQ2MjYwMTIsInNvdXJjZSI6InNyLWF1dGgtaW50IiwiZXhwIjoxNzE0OTI2NjAyLCJqdGkiOiJQOFh0dmhUQ2NmNHhWaTV5IiwiaWF0IjoxNzE0MDYyNjAyLCJpc3MiOiJodHRwczovL3NyLWF1dGguc2hpcHJvY2tldC5pbi9hdXRob3JpemUvdXNlciIsIm5iZiI6MTcxNDA2MjYwMiwiY2lkIjo0NDUwOTM0LCJ0YyI6MzYwLCJ2ZXJib3NlIjpmYWxzZSwidmVuZG9yX2lkIjowLCJ2ZW5kb3JfY29kZSI6IiJ9.mZsesR3wTWDyR4ZWVqWDyoIIPQd4RVL2W2Q1zCv2Q-g";
+        $curl1 = curl_init();
+        curl_setopt_array($curl1, array(
+          CURLOPT_URL => 'https://apiv2.shiprocket.in/v1/external/courier/track?order_id='.$shiprocketorderid.'&channel_id=',
+          CURLOPT_RETURNTRANSFER => true,
+          CURLOPT_ENCODING => '',
+          CURLOPT_MAXREDIRS => 10,
+          CURLOPT_TIMEOUT => 0,
+          CURLOPT_FOLLOWLOCATION => true,
+          CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+          CURLOPT_CUSTOMREQUEST => 'GET',
+          CURLOPT_HTTPHEADER => array(
+            'Authorization: Bearer '.$SHIPROCKETTOKEN 
+          ),
+        ));        
+        $response11 = curl_exec($curl1);        
+        curl_close($curl1);  
+        $data = json_decode($response11, true);  
+        if (empty($data)) {
+        $success = array('order_id' =>  $shiprocketorderid, 'msg' => $data);
+        $this->response($this->json($success), 200);     }  
+        else{
+            if (isset($data['message'])) {           
+                if ($data['message'] === 'Token has expired') { 
+                    $curl = curl_init();
+
+                    curl_setopt_array($curl, array(
+                        CURLOPT_URL => 'https://apiv2.shiprocket.in/v1/external/auth/login',
+                        CURLOPT_RETURNTRANSFER => true,
+                        CURLOPT_ENCODING => '',
+                        CURLOPT_MAXREDIRS => 10,
+                        CURLOPT_TIMEOUT => 0,
+                        CURLOPT_FOLLOWLOCATION => true,
+                        CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+                        CURLOPT_CUSTOMREQUEST => 'POST',
+                        CURLOPT_POSTFIELDS => '{
+                        "email": "vanooja@moonhive.in",
+                        "password": "Vanooja#345"
+                    }',
+                        CURLOPT_HTTPHEADER => array(
+                            'Content-Type: application/json'
+                        ),
+                    ));
+            
+                    $tokenjson = curl_exec($curl);
+            
+                    curl_close($curl);
+            
+                    $tokenArray = json_decode($tokenjson, true);
+                    $SHIPROCKETTOKEN = $tokenArray['token'];
+                    $rlt = mysqli_query($this->mysqli, "INSERT INTO shiprocket_token (ship_rocket_token)VALUES('$SHIPROCKETTOKEN')");
+                    sleep(3);
+                    
+                    $curl3 = curl_init();
+
+                    curl_setopt_array($curl3, array(
+                    CURLOPT_URL => 'https://apiv2.shiprocket.in/v1/external/courier/track?order_id='.$shiprocketorderid.'&channel_id=',
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_ENCODING => '',
+                    CURLOPT_MAXREDIRS => 10,
+                    CURLOPT_TIMEOUT => 0,
+                    CURLOPT_FOLLOWLOCATION => true,
+                    CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+                    CURLOPT_CUSTOMREQUEST => 'GET',
+                    CURLOPT_HTTPHEADER => array(
+                        'Authorization: Bearer '.$SHIPROCKETTOKEN 
+                    ),
+                    ));
+                    $json_response3 = curl_exec($curl3);   
+                    curl_close($curl3);   
+                    $dataArray = json_decode($json_response3, true);
+                    $success = array('order_id' =>  $shiprocketorderid, 'msg' => $dataArray);
+                    $this->response($this->json($success), 200); 
+                        
+                
+                }
+                else{
+                $success = array('order_id' =>  $shiprocketorderid, 'msg' => $data);
+                $this->response($this->json($success), 200);
+                }
+            }else{
+                $success = array('order_id' =>  $shiprocketorderid, 'msg' => $data);
+                $this->response($this->json($success), 200);
+            } 
+        }
+           
+    }
+
+    function trackshippingorder($shiprocketorderid, $SHIPROCKETTOKEN)
+    {
+ 
+       
+        $curl = curl_init();
+        curl_setopt_array($curl, array(
+            CURLOPT_URL => 'https://apiv2.shiprocket.in/v1/external/courier/track?order_id=' . $shiprocketorderid . '&channel_id=',
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING => '',
+            CURLOPT_MAXREDIRS => 10,
+            CURLOPT_TIMEOUT => 0,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_CUSTOMREQUEST => 'GET',
+            CURLOPT_HTTPHEADER => array(
+                'Authorization: Bearer ' .$SHIPROCKETTOKEN
+            ),
+        ));
+        $json_response1 = curl_exec($curl);   
+        curl_close($curl);    
+       
+        return json_decode($json_response1, true);
+    }
+
+    function createShiprocketToken($var)
+    {
+        $curl = curl_init();
+
+        curl_setopt_array($curl, array(
+            CURLOPT_URL => 'https://apiv2.shiprocket.in/v1/external/auth/login',
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING => '',
+            CURLOPT_MAXREDIRS => 10,
+            CURLOPT_TIMEOUT => 0,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_CUSTOMREQUEST => 'POST',
+            CURLOPT_POSTFIELDS => '{
+            "email": "vanooja@moonhive.in",
+            "password": "Vanooja#345"
+        }',
+            CURLOPT_HTTPHEADER => array(
+                'Content-Type: application/json'
+            ),
+        ));
+
+        $tokenjson = curl_exec($curl);
+
+        curl_close($curl);
+
+        $tokenArray = json_decode($tokenjson, true);
+        $ship_rocket_token = $tokenArray['token'];
+        $rlt = mysqli_query($this->mysqli, "INSERT INTO shiprocket_token (ship_rocket_token)VALUES('$ship_rocket_token')");
+        return $ship_rocket_token;
     }
 }
 
