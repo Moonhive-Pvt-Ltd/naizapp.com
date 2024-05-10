@@ -1,5 +1,5 @@
 $(document).ready(function () {
-    let BASE_URL = 'http://dev.moonhive.in/naizapp.com/api/v1/user_web/';
+    let BASE_URL = 'https://naizapp.com/api/v1/user_web/';
 
     const Toast = Swal.mixin({
         toast: true,

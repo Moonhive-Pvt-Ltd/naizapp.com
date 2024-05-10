@@ -12,7 +12,7 @@ require '../../../vendor/autoload.php';
 
 class API extends REST
 {
-    const ENV = "DEV";
+    const ENV = "PROD";
     const URL = self::ENV == 'DEV' ? 'http://dev.moonhive.in/admin.naizapp.com/' : 'https://admin.naizapp.com/';
     const WEB_URL = self::ENV == 'DEV' ? 'http://dev.moonhive.in/naizapp.com/' : 'https://naizapp.com/';
 
