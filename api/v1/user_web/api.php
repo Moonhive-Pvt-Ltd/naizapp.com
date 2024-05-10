@@ -13,8 +13,8 @@ require '../../../vendor/autoload.php';
 class API extends REST
 {
     const ENV = "DEV";
-    const URL = self::ENV == 'DEV' ? 'http://localhost/admin.naizapp.com/' : 'https://admin.naizapp.com/';
-    const WEB_URL = self::ENV == 'DEV' ? 'http://localhost/naizapp.com/' : 'https://naizapp.com/';
+    const URL = self::ENV == 'DEV' ? 'http://dev.moonhive.in/admin.naizapp.com/' : 'https://admin.naizapp.com/';
+    const WEB_URL = self::ENV == 'DEV' ? 'http://dev.moonhive.in/naizapp.com/' : 'https://naizapp.com/';
 
     const EMAIL = 'naiztrading2021@gmail.com';
     const EMAIL_PASSWORD = 'xktiublkkpriftmm';
